@@ -29,25 +29,12 @@ gpt-5 high · 승인 auto-review (on-request) · my-project [Git feat/codex-hud*
 
 이 프로젝트에는 HUD 설치·진단과 선택적 자동 실행을 담당하는
 [`codex-hud-install` 스킬과 `codex-hud` 플러그인](plugins/codex-hud/README.md)이
-포함되어 있습니다. 단독 스킬 또는 플러그인 중 한 가지를 등록하고, 새 Codex
-대화에서 HUD 설치를 요청합니다. 스킬·플러그인 등록과 HUD 실행 프로그램 설치는
-별도 단계입니다.
+포함되어 있습니다. **GitHub 플러그인 방식으로 설치하는 것을 권장합니다.**
+Codex가 배포 소스와 플러그인 캐시를 관리하며, CLI 명령으로 설치와 갱신을
+처리할 수 있습니다. 플러그인을 등록한 뒤 새 Codex 대화에서 HUD 설치를 요청합니다.
+스킬·플러그인 등록과 HUD 실행 프로그램 설치는 별도 단계입니다.
 
-### 단독 스킬
-
-Codex에 다음 요청을 붙여 넣습니다.
-
-```text
-Use $skill-installer to install https://github.com/whchoi98/my-codex-hud/tree/main/plugins/codex-hud/skills/codex-hud-install into ~/.agents/skills
-```
-
-설치 스크립트와 HUD npm 아카이브를 포함한 전체 폴더가
-`~/.agents/skills/codex-hud-install`에 필요합니다. `SKILL.md`만 복사하지 마세요.
-`skill-installer`의 기본 경로와 구분하도록 위 요청에 설치 목적지를 명시했습니다.
-기존 경로가 있으면 덮어쓰지 않으므로 갱신 방법은
-[스킬 등록 안내](plugins/codex-hud/README.md)를 참고하세요.
-
-### GitHub 플러그인
+### GitHub 플러그인 (권장)
 
 `codex plugin marketplace --help`가 동작하는 CLI에서 실행합니다.
 
@@ -57,8 +44,7 @@ codex plugin add codex-hud@codex-hud
 ```
 
 저장소의 `.agents/plugins/marketplace.json`은 `plugins/codex-hud`를 가리킵니다.
-Codex가 내려받은 소스와 플러그인 캐시를 관리합니다. 갱신할 때는 다음을 실행한 뒤
-새 대화를 시작합니다.
+갱신할 때는 다음을 실행한 뒤 새 대화를 시작합니다.
 
 ```bash
 codex plugin marketplace upgrade codex-hud
@@ -69,6 +55,21 @@ codex plugin add codex-hud@codex-hud
 `codex-hud` 0.6.0 설치를 확인했습니다. 단독 스킬과 소스 설치도 사용할 수 있습니다.
 프로젝트 범위 설치는 0.6.0부터 지원합니다.
 실행 환경과 결과는 [GitHub 설치 검증](docs/verification-github-install.md)에 기록했습니다.
+
+### 단독 스킬 (선택)
+
+플러그인 명령을 사용할 수 없거나 스킬 폴더를 직접 관리하려면 단독 스킬을
+선택할 수 있습니다. Codex에 다음 요청을 붙여 넣습니다.
+
+```text
+Use $skill-installer to install https://github.com/whchoi98/my-codex-hud/tree/main/plugins/codex-hud/skills/codex-hud-install into ~/.agents/skills
+```
+
+설치 스크립트와 HUD npm 아카이브를 포함한 전체 폴더가
+`~/.agents/skills/codex-hud-install`에 필요합니다. `SKILL.md`만 복사하지 마세요.
+`skill-installer`의 기본 경로와 구분하도록 위 요청에 설치 목적지를 명시했습니다.
+기존 경로가 있으면 덮어쓰지 않으므로 갱신 방법은
+[스킬 등록 안내](plugins/codex-hud/README.md)를 참고하세요.
 
 ### HUD 설치와 적용 범위
 
@@ -96,6 +97,8 @@ $codex-hud-install 현재 프로젝트에만 HUD를 설치하고 자동 실행�
 플러그인 등록만으로 HUD나 셸 설정이 바뀌지는 않습니다.
 
 ## 빠른 시작
+
+### 소스에서 직접 설치 (선택)
 
 Node.js 20 이상과 PATH에서 실행할 수 있는 Codex CLI를 준비합니다.
 GitHub 소스에서 직접 설치하려면 Git으로 저장소를 내려받습니다.

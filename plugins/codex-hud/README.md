@@ -26,25 +26,12 @@ $codex-hud-install HUD가 정상 작동하는지 확인해줘.
 
 ## GitHub에서 등록
 
-단독 스킬 또는 플러그인 중 한 가지를 선택합니다. 어느 경로든 등록이 끝나면
-새 Codex 대화에서 위의 HUD 설치 요청을 보냅니다. 등록 단계에서는 HUD 실행
-프로그램을 설치하거나 셸 자동 실행을 활성화하지 않습니다.
+**GitHub 플러그인 방식으로 설치하는 것을 권장합니다.** Codex가 배포 소스와
+플러그인 캐시를 관리하며, CLI 명령으로 설치와 갱신을 처리할 수 있습니다.
+등록이 끝나면 새 Codex 대화에서 위의 HUD 설치 요청을 보냅니다. 등록 단계에서는
+HUD 실행 프로그램을 설치하거나 셸 자동 실행을 활성화하지 않습니다.
 
-### 단독 스킬
-
-Codex에 다음을 요청합니다. 목적지를 명시해 전체 스킬 폴더를
-`~/.agents/skills/codex-hud-install`에 설치합니다.
-
-```text
-Use $skill-installer to install https://github.com/whchoi98/my-codex-hud/tree/main/plugins/codex-hud/skills/codex-hud-install into ~/.agents/skills
-```
-
-`scripts/`, `assets/`, `agents/`를 포함한 전체 폴더가 필요합니다.
-GitHub 다운로드 도구는 기존 대상이 있으면 덮어쓰지 않습니다. 이 도구로
-다운로드한 사본에는 아래 등록 도구의 소유 표식이 없으므로, 그 도구로 관리하도록
-바꾸려면 기존 사본을 스킬 탐색 경로 밖에 보관한 뒤 새로 등록합니다.
-
-### GitHub 마켓플레이스
+### GitHub 플러그인 (권장)
 
 `plugin marketplace` 명령을 지원하는 Codex CLI에서 실행합니다.
 
@@ -74,7 +61,22 @@ codex plugin marketplace add /absolute/path/to/my-codex-hud
 codex plugin add codex-hud@codex-hud
 ```
 
-### GitHub 소스를 받아 HUD 설치
+### 단독 스킬 (선택)
+
+플러그인 명령을 사용할 수 없거나 스킬 폴더를 직접 관리하려면 단독 스킬을
+선택할 수 있습니다. Codex에 다음을 요청합니다. 목적지를 명시해 전체 스킬
+폴더를 `~/.agents/skills/codex-hud-install`에 설치합니다.
+
+```text
+Use $skill-installer to install https://github.com/whchoi98/my-codex-hud/tree/main/plugins/codex-hud/skills/codex-hud-install into ~/.agents/skills
+```
+
+`scripts/`, `assets/`, `agents/`를 포함한 전체 폴더가 필요합니다.
+GitHub 다운로드 도구는 기존 대상이 있으면 덮어쓰지 않습니다. 이 도구로
+다운로드한 사본에는 아래 등록 도구의 소유 표식이 없으므로, 그 도구로 관리하도록
+바꾸려면 기존 사본을 스킬 탐색 경로 밖에 보관한 뒤 새로 등록합니다.
+
+### GitHub 소스를 받아 HUD 설치 (선택)
 
 Python 3.9 이상, Node.js 20 이상, npm, Git과 PATH의 Codex CLI를 준비합니다.
 사용자 범위 설치 예시입니다.
