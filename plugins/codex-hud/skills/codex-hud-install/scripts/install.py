@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the bundled HUD and optionally connect interactive shell startup."""
+"""Install the bundled HUD for a user or project, with optional shell autostart."""
 
 from __future__ import annotations
 
@@ -97,11 +97,13 @@ def atomic_write(path: Path, data: bytes, mode: int = 0o644) -> None:
 def parse_args() -> argparse.Namespace:
     detected_shell = Path(os.environ.get("SHELL", "")).name
     default_shell = detected_shell if detected_shell in ("bash", "zsh") else "none"
-    data_home = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--prefix", default=str(data_home / "codex-hud"))
+    parser.add_argument("--scope", choices=("user", "project"), default="user",
+                        help="Install for this user (default) or one project.")
+    parser.add_argument("--project-dir", help="Project root for project scope (default: current directory).")
+    parser.add_argument("--prefix", help="Install prefix; project prefixes must stay inside the project.")
     parser.add_argument("--shell", choices=("bash", "zsh", "none"), default=default_shell)
-    parser.add_argument("--rc-file", help="Use one explicit startup file, instead of shell defaults.")
+    parser.add_argument("--rc-file", help="User scope only: edit one startup file instead of shell defaults.")
     parser.add_argument("--autostart", action="store_true", help="Wrap interactive codex with HUD.")
     parser.add_argument("--language", choices=("ko", "en"), help="Preserve existing language by default.")
     parser.add_argument("--dry-run", action="store_true", help="Validate and print a plan without writes.")
@@ -110,10 +112,68 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def installation_paths(args: argparse.Namespace) -> tuple[Path | None, Path]:
+    project = None
+    if args.scope == "project":
+        project = Path(args.project_dir or Path.cwd()).expanduser().resolve()
+        if not project.is_dir() or project == Path(project.anchor):
+            raise ValueError("Project scope needs an existing project directory, not the filesystem root.")
+        if args.rc_file:
+            raise ValueError("--rc-file is only supported by user scope; project scope never edits startup files.")
+        default_prefix = project / ".codex-hud"
+    else:
+        if args.project_dir is not None:
+            raise ValueError("--project-dir requires --scope project.")
+        data_home = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+        default_prefix = data_home / "codex-hud"
+    prefix = Path(args.prefix or default_prefix).expanduser().resolve()
+    if project is not None and (prefix == project or project not in prefix.parents):
+        raise ValueError("A project prefix must stay in a subdirectory of the project.")
+    if any(char in str(prefix) for char in (":", "\n", "\r")):
+        raise ValueError("The prefix must not contain a PATH separator or newline.")
+    return project, prefix
+
+
+def shell_source(prefix: Path, scope: str, project: Path | None,
+                 language: str, autostart: bool) -> str:
+    text = f"{OWNER}\n# scope: {scope}\n# language: {language}\n"
+    if scope == "user":
+        quoted_bin = shlex.quote(str(prefix / "bin"))
+        text += (
+            'case ":${PATH-}:" in\n'
+            f'    *:{quoted_bin}:*) ;;\n'
+            f'    *) export PATH={quoted_bin}:"${{PATH-}}" ;;\n'
+            'esac\n'
+        )
+    if not autostart:
+        return text
+    text += f"\n{AUTOSTART}\n"
+    executable = shlex.quote(str(prefix / "bin" / "codex-hud"))
+    if scope == "project":
+        # Preserve a previously sourced user wrapper from older installations.
+        text += (
+            'if [ -z "${_CODEX_HUD_USER_COMMAND-}" ] && [ -n "${_CODEX_HUD_LANGUAGE-}" ]; then\n'
+            '    _CODEX_HUD_USER_COMMAND=$(command -v codex-hud 2>/dev/null) || _CODEX_HUD_USER_COMMAND=\n'
+            '    _CODEX_HUD_USER_LANGUAGE=$_CODEX_HUD_LANGUAGE\n'
+            'fi\n'
+            f"_CODEX_HUD_PROJECT_ROOT={shlex.quote(str(project))}\n"
+            f"_CODEX_HUD_PROJECT_COMMAND={executable}\n"
+            f"_CODEX_HUD_PROJECT_LANGUAGE={shlex.quote(language)}\n"
+        )
+    else:
+        text += (
+            f"_CODEX_HUD_USER_COMMAND={executable}\n"
+            f"_CODEX_HUD_USER_LANGUAGE={shlex.quote(language)}\n"
+            f"_CODEX_HUD_LANGUAGE={shlex.quote(language)}\n"
+        )
+    return text + (ASSETS / "codex-hud.sh").read_text(encoding="utf-8")
+
+
 def install(args: argparse.Namespace) -> dict:
     if os.name != "posix":
         raise ValueError("This installer requires Linux, macOS, or WSL.")
-    if args.autostart and args.shell == "none":
+    project, prefix = installation_paths(args)
+    if args.autostart and args.shell == "none" and args.scope == "user":
         raise ValueError("--autostart requires --shell bash or --shell zsh.")
     node, npm, codex = (shutil.which(name) for name in ("node", "npm", "codex"))
     if not all((node, npm, codex)):
@@ -123,32 +183,23 @@ def install(args: argparse.Namespace) -> dict:
     if not match or int(match[1]) < 20:
         raise ValueError(f"Node.js 20+ is required; found {version}.")
     archive, metadata = bundle()
-    prefix = Path(args.prefix).expanduser().resolve()
-    if any(char in str(prefix) for char in (":", "\n", "\r")):
-        raise ValueError("The prefix must not contain a PATH separator or newline.")
     shell_file = prefix / "shell.sh"
     previous = shell_file.read_text(encoding="utf-8") if shell_file.exists() else ""
     if previous and not previous.startswith(OWNER + "\n"):
         raise ValueError(f"Refusing to replace an unrelated file: {shell_file}")
+    previous_scope = re.search(r"^# scope: (user|project)$", previous, re.MULTILINE)
+    if previous and (previous_scope[1] if previous_scope else "user") != args.scope:
+        raise ValueError("This prefix belongs to a different install scope; choose another prefix.")
     autostart = args.autostart or AUTOSTART in previous.splitlines()
     previous_language = re.search(r"^# language: (ko|en)$", previous, re.MULTILINE)
     language = args.language or (previous_language[1] if previous_language else "ko")
-    quoted_bin = shlex.quote(str(prefix / "bin"))
-    shell_text = (
-        f'{OWNER}\n# language: {language}\n'
-        'case ":${PATH-}:" in\n'
-        f'    *:{quoted_bin}:*) ;;\n'
-        f'    *) export PATH={quoted_bin}:"${{PATH-}}" ;;\n'
-        'esac\n'
-    )
-    if autostart:
-        shell_text += (f"\n{AUTOSTART}\n_CODEX_HUD_LANGUAGE={shlex.quote(language)}\n"
-                       + (ASSETS / "codex-hud.sh").read_text(encoding="utf-8"))
+    shell_text = shell_source(prefix, args.scope, project, language, autostart)
     quoted_source = shlex.quote(str(shell_file))
     block = (f"{BEGIN}\nif [ -r {quoted_source} ]; then\n"
              f"    . {quoted_source}\nfi\n{END}\n")
     edits = []
-    for path in startup_files(args.shell, args.rc_file):
+    startup = startup_files(args.shell, args.rc_file) if args.scope == "user" else []
+    for path in startup:
         if path in {shell_file.resolve(), (prefix / "bin" / "codex-hud").resolve()}:
             raise ValueError("A startup file cannot also be the HUD executable or its shell source.")
         before = path.read_bytes() if path.exists() else None
@@ -164,7 +215,8 @@ def install(args: argparse.Namespace) -> dict:
     if args.npm_cache:
         install_command += ["--cache", str(Path(args.npm_cache).expanduser().resolve())]
     plan = {
-        "version": metadata["version"], "prefix": str(prefix),
+        "version": metadata["version"], "scope": args.scope,
+        "project": str(project) if project is not None else None, "prefix": str(prefix),
         "command": str(prefix / "bin" / "codex-hud"),
         "shellFile": str(shell_file), "startupFiles": [str(edit[0]) for edit in edits],
         "autostart": autostart, "language": language,

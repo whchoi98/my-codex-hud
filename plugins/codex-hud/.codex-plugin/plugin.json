@@ -1,7 +1,7 @@
 {
   "name": "codex-hud",
-  "version": "0.5.2",
-  "description": "Install the bundled Codex terminal HUD and configure optional shell autostart.",
+  "version": "0.6.0",
+  "description": "Install the bundled Codex terminal HUD for a user or project with optional scoped shell autostart.",
   "author": {
     "name": "Codex HUD contributors"
   },
@@ -10,13 +10,14 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Codex HUD 설치",
-    "shortDescription": "HUD 설치, 셸 자동 실행 설정과 진단",
-    "longDescription": "동봉된 Codex HUD를 사용자 전용 경로에 설치하고, 요청하면 Bash 또는 Zsh에서 codex 실행 시 HUD가 함께 켜지도록 설정합니다.",
+    "shortDescription": "사용자·프로젝트별 HUD 설치, 자동 실행과 진단",
+    "longDescription": "동봉된 Codex HUD와 설치 스킬을 사용자 전체 또는 특정 프로젝트 범위로 설치하고, 요청하면 Bash 또는 Zsh에서 해당 범위의 codex 실행에 HUD를 연결합니다.",
     "developerName": "Codex HUD contributors",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "defaultPrompt": [
       "$codex-hud-install HUD를 설치하고 codex 실행 시 자동으로 켜지도록 설정해줘.",
+      "$codex-hud-install 현재 프로젝트에만 HUD를 설치하고 자동 실행을 설정해줘.",
       "$codex-hud-install 설치된 HUD의 상태를 점검해줘."
     ]
   }

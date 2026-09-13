@@ -1,7 +1,9 @@
 node_modules/
+.codex-hud/
 coverage/
 *.tgz
 !plugins/codex-hud/skills/codex-hud-install/assets/*.tgz
+!.agents/skills/codex-hud-install/assets/*.tgz
 dist/
 __pycache__/
 .DS_Store

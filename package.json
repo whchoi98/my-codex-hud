@@ -1,6 +1,6 @@
 {
   "name": "my-codex-hud",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "A local terminal HUD for Codex CLI, inspired by claude-hud",
   "type": "module",
   "bin": {
@@ -23,7 +23,7 @@
   "scripts": {
     "test": "node --test",
     "check": "node scripts/check.mjs",
-    "test:installer": "python3 -m unittest discover -s tests -p test_plugin_installer.py -v",
+    "test:installer": "python3 -m unittest discover -s tests -p 'test_*installer.py' -v",
     "package:plugin": "python3 scripts/package-plugin.py",
     "demo": "node bin/codex-hud.js demo",
     "start": "node bin/codex-hud.js start"

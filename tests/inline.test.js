@@ -24,7 +24,7 @@ async function until(check, message) {
   assert.fail(message);
 }
 
-async function fixture(t, extraEnv = {}, overrides = {}) {
+async function fixture(t, extraEnv = {}, overrides = {}, initialText = '') {
   const dir = await mkdtemp(join(tmpdir(), 'codex-hud-inline-'));
   const bin = join(dir, 'bin');
   const codexHome = join(dir, 'codex');
@@ -51,6 +51,7 @@ async function fixture(t, extraEnv = {}, overrides = {}) {
   const terminal = new xterm.Terminal({ cols: 80, rows: 24, allowProposedApi: true });
   terminal.loadAddon(new unicode.Unicode11Addon());
   terminal.unicode.activeVersion = '11';
+  if (initialText) await new Promise(resolve => terminal.write(initialText, resolve));
   const child = pty.spawn(process.execPath, ['--input-type=module', '-e', runner], {
     cols: 80, rows: 24, cwd: dir, name: 'xterm-256color',
     env: { ...process.env, PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
@@ -86,6 +87,51 @@ test('inline launch rejects redirected input before spawning or changing termina
   await assert.rejects(launchInline({}), /interactive.*TTY|terminal/i);
 });
 
+test('default inline launch preserves native terminal history and dragging without wheel-generated input', async t => {
+  const f = await fixture(t, {}, {}, 'SHELL BEFORE HUD\r\n');
+  await until(() => screenLines(f.terminal).some(line => line.includes('컨텍스트')), 'HUD never displayed');
+  assert.equal(f.terminal.buffer.active.type, 'normal', 'native wheel scrolling needs the normal host buffer');
+  assert.equal(f.terminal.modes.mouseTrackingMode, 'none');
+  assert.deepEqual((await f.records()).find(event => event.type === 'ready').args, ['--no-alt-screen']);
+  f.child.write('h');
+  const history = () => Array.from({ length: f.terminal.buffer.normal.baseY }, (_, row) =>
+    f.terminal.buffer.normal.getLine(row)?.translateToString(true) ?? '');
+  await until(() => history().includes('HISTORY-0')
+    && screenLines(f.terminal).some(line => line.includes('HISTORY-49'))
+    && screenLines(f.terminal).some(line => line.includes('컨텍스트')),
+    'Codex history and the completed live frame were not rendered');
+  await f.flush();
+  assert.ok(history().includes('SHELL BEFORE HUD'), 'pre-launch terminal history was lost');
+  const before = (await f.records()).filter(event => event.type === 'input');
+  f.terminal.scrollLines(-10);
+  const viewport = f.terminal.buffer.normal.viewportY;
+  const visible = screenLines(f.terminal);
+  await delay(300);
+  await f.flush();
+  assert.equal(f.terminal.buffer.normal.viewportY, viewport);
+  assert.deepEqual(screenLines(f.terminal), visible);
+  assert.deepEqual((await f.records()).filter(event => event.type === 'input'), before);
+  f.child.write('q');
+  assert.equal((await f.exited).exitCode, 0);
+  await f.flush();
+  assert.equal(f.terminal.buffer.active.type, 'normal');
+  assert.ok(history().includes('HISTORY-0'), 'session exit must keep scrollback available');
+  assert.match(f.output(), /RESTORED \{"raw":false/);
+});
+
+test('native launch adds the Codex screen option once without treating option values or paste delimiters as flags', async t => {
+  for (const [args, expected] of [
+    [['--no-alt-screen', 'prompt'], ['--no-alt-screen', 'prompt']],
+    [['--', '--no-alt-screen'], ['--no-alt-screen', '--', '--no-alt-screen']],
+    [['--model', '--no-alt-screen'], ['--no-alt-screen', '--model', '--no-alt-screen']],
+  ]) {
+    const f = await fixture(t, {}, { codexArgs: args });
+    assert.deepEqual((await f.records()).find(event => event.type === 'ready').args, expected);
+    f.child.write('q');
+    assert.equal((await f.exited).exitCode, 0);
+  }
+});
+
 test('real PTYs display Codex above the full HUD and preserve the footer through child clears and resize', async t => {
   const f = await fixture(t);
   await until(() => screenLines(f.terminal).some(line => line.includes('컨텍스트')), 'HUD never displayed');
@@ -104,7 +150,8 @@ test('real PTYs display Codex above the full HUD and preserve the footer through
   assert.equal((await f.exited).exitCode, 0);
   await f.flush();
   assert.match(f.output(), /RESTORED \{"raw":false/);
-  assert.match(f.output(), /\x1b\[\?1049l/);
+  assert.equal(f.terminal.buffer.active.type, 'normal');
+  assert.doesNotMatch(f.output(), /\x1b\[\?1049[hl]/);
 });
 
 test('parallel agents resize the Codex PTY while loaded skills stay on one row below tools', async t => {
@@ -182,6 +229,8 @@ for (const mouse of [false, true]) {
   test(`runtime selection controls preserve mouse=${mouse} through real PTYs without reaching Codex`, async t => {
     const f = await fixture(t, {}, { mouse });
     await until(() => screenLines(f.terminal).some(line => line.includes('컨텍스트')), 'Korean HUD never appeared');
+    assert.equal(f.terminal.buffer.active.type, mouse ? 'alternate' : 'normal');
+    assert.deepEqual((await f.records()).find(event => event.type === 'ready').args, ['--no-alt-screen']);
     assert.equal(f.terminal.modes.mouseTrackingMode, mouse ? 'vt200' : 'none');
     f.child.write('\x1b');
     f.child.write('l');
@@ -208,6 +257,8 @@ for (const mouse of [false, true]) {
     assert.ok(!input.includes('\x1bl') && !input.includes('\x1bm'), 'HUD shortcuts leaked into Codex');
     f.child.write('q');
     assert.equal((await f.exited).exitCode, 0);
+    await f.flush();
+    assert.equal(f.terminal.buffer.active.type, 'normal');
   });
 }
 

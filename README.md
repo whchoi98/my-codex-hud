@@ -1,6 +1,6 @@
 # Codex HUD
 
-현재 버전: **0.5.2** · [버전별 변경 이력](CHANGELOG.md)
+현재 버전: **0.6.0** · [버전별 변경 이력](CHANGELOG.md)
 
 [문서 목차](docs/README.md) · [아키텍처](docs/architecture.md) · [온보딩](docs/onboarding.md) · [기여와 Git 작업](CONTRIBUTING.md)
 
@@ -25,15 +25,71 @@ gpt-5 high · 승인 auto-review (on-request) · my-project [Git feat/codex-hud*
 
 위 수치는 `demo`의 예시입니다. 실제 모델명과 값은 세션 기록에서 읽습니다.
 
-## 설치용 스킬과 플러그인
+## GitHub에서 설치
 
 이 프로젝트에는 HUD 설치·진단과 선택적 자동 실행을 담당하는
 [`codex-hud-install` 스킬과 `codex-hud` 플러그인](plugins/codex-hud/README.md)이
-포함되어 있습니다. 등록한 뒤 새 Codex 대화에서 요청할 수 있습니다.
+포함되어 있습니다. 단독 스킬 또는 플러그인 중 한 가지를 등록하고, 새 Codex
+대화에서 HUD 설치를 요청합니다. 스킬·플러그인 등록과 HUD 실행 프로그램 설치는
+별도 단계입니다.
+
+### 단독 스킬
+
+Codex에 다음 요청을 붙여 넣습니다.
 
 ```text
-$codex-hud-install HUD를 설치하고 codex 실행 시 자동으로 켜지도록 설정해줘.
+Use $skill-installer to install https://github.com/whchoi98/my-codex-hud/tree/main/plugins/codex-hud/skills/codex-hud-install into ~/.agents/skills
 ```
+
+설치 스크립트와 HUD npm 아카이브를 포함한 전체 폴더가
+`~/.agents/skills/codex-hud-install`에 필요합니다. `SKILL.md`만 복사하지 마세요.
+`skill-installer`의 기본 경로와 구분하도록 위 요청에 설치 목적지를 명시했습니다.
+기존 경로가 있으면 덮어쓰지 않으므로 갱신 방법은
+[스킬 등록 안내](plugins/codex-hud/README.md)를 참고하세요.
+
+### GitHub 플러그인
+
+`codex plugin marketplace --help`가 동작하는 CLI에서 실행합니다.
+
+```bash
+codex plugin marketplace add whchoi98/my-codex-hud --ref main
+codex plugin add codex-hud@codex-hud
+```
+
+저장소의 `.agents/plugins/marketplace.json`은 `plugins/codex-hud`를 가리킵니다.
+Codex가 내려받은 소스와 플러그인 캐시를 관리합니다. 갱신할 때는 다음을 실행한 뒤
+새 대화를 시작합니다.
+
+```bash
+codex plugin marketplace upgrade codex-hud
+codex plugin add codex-hud@codex-hud
+```
+
+**공개 상태 확인(2026-09-13):** GitHub `main`은 아직 0.5.2이고 마켓플레이스
+목록이 없어 위 플러그인 명령은 이 변경이 GitHub에 반영된 뒤 사용할 수 있습니다.
+현재 공개본에서는 위의 단독 스킬 설치 또는 아래의 소스 설치를 사용할 수 있습니다.
+프로젝트 범위 설치는 0.6.0부터 지원합니다.
+실행 환경과 결과는 [GitHub 설치 검증](docs/verification-github-install.md)에 기록했습니다.
+
+### HUD 설치와 적용 범위
+
+스킬이나 플러그인을 등록한 뒤 새 Codex 대화에서 요청합니다.
+
+```text
+$codex-hud-install 사용자 전체에 HUD를 설치하고 codex 실행 시 자동으로 켜지도록 설정해줘.
+```
+
+```text
+$codex-hud-install 현재 프로젝트에만 HUD를 설치하고 자동 실행을 설정해줘.
+```
+
+스킬은 처음 설치할 때 **사용자 전체(`user`) / 현재 프로젝트(`project`)** 중
+적용 범위를 확인합니다. 사용자 설치는 `~/.local/share/codex-hud` 또는
+`$XDG_DATA_HOME/codex-hud`, 프로젝트 설치는 `<프로젝트>/.codex-hud`를 사용합니다.
+프로젝트 설치는 사용자 셸 시작 파일과 PATH를 변경하지 않고, 해당 터미널에서
+`shell.sh`를 읽으면 그 프로젝트와 하위 디렉터리에 자동 실행을 적용합니다.
+스킬 자체도 사용자 또는 프로젝트의 `.agents/skills`에 등록할 수 있습니다.
+등록·설치 명령은 [설치 플러그인 안내](plugins/codex-hud/README.md)를 참고하세요.
 
 `npm run package:plugin`으로 현재 HUD 실행 패키지를 동봉한 플러그인 ZIP과
 단독 스킬 ZIP을 `dist/`에 만듭니다. 원본 프로젝트 폴더를 옮기지 않아도 설치할
@@ -42,13 +98,19 @@ $codex-hud-install HUD를 설치하고 codex 실행 시 자동으로 켜지도�
 
 ## 빠른 시작
 
-Node.js 20 이상과 PATH에서 실행할 수 있는 Codex CLI를 준비합니다. 이 저장소 폴더에서 의존성과 명령어를 설치합니다.
+Node.js 20 이상과 PATH에서 실행할 수 있는 Codex CLI를 준비합니다.
+GitHub 소스에서 직접 설치하려면 Git으로 저장소를 내려받습니다.
 
 ```bash
-npm install
+git clone --depth 1 https://github.com/whchoi98/my-codex-hud.git
+cd my-codex-hud
+npm ci
 npm install -g .
 codex-hud doctor
 ```
+
+이미 소스가 있다면 복제 단계부터 반복하지 않고 해당 폴더에서 npm 명령을 실행합니다.
+이 경로는 `codex-hud` 실행 파일을 설치하며 셸 자동 실행은 설정하지 않습니다.
 
 런타임 의존성은 `node-pty` **1.1.0**, `@xterm/headless` **6.0.0**, `@xterm/addon-unicode11` **0.9.0**으로 고정되어 있습니다. OS·CPU에 맞는 사전 빌드가 없는 환경에서는 `node-pty` 설치에 Python과 C/C++ 빌드 도구가 필요할 수 있습니다.
 
@@ -68,10 +130,10 @@ Codex가 첫 작업을 시작하기 전에는 세션 기록이 없어 `Codex 세
 
 - 실행 중인 에이전트가 늘어나면 HUD 높이도 늘어나고, 완료·종료되면 목록에서 빠지며 높이가 줄어듭니다. 터미널 크기를 바꾸면 Codex 영역과 HUD 위치가 함께 조정되고, 높이가 부족하면 Codex 입력 공간을 남겨 둡니다.
 - 화면에 다 들어오지 않는 HUD 목록은 `Alt+PageUp` / `Alt+PageDown`으로 끝까지 볼 수 있습니다. `--mouse`로 실행하면 HUD 위에서 마우스 휠로도 넘길 수 있습니다. 아래쪽의 `HUD 1-18/47`은 현재 보이는 줄의 범위와 전체 줄 수입니다.
-- 키보드 입력과 `Ctrl+C`는 Codex에 전달됩니다. Codex가 종료되면 HUD도 종료되고 원래 화면, 커서, 입력 모드가 복원됩니다. Codex의 종료 코드도 유지합니다.
-- 기본 실행에서는 마우스로 바로 텍스트를 드래그해 선택·복사할 수 있습니다. 출력이 계속 바뀌면 `Alt+M`으로 화면을 고정한 뒤 선택합니다. Codex의 지난 출력을 마우스 휠로 보려면 `--mouse`로 실행합니다.
+- 키보드 입력과 `Ctrl+C`는 Codex에 전달됩니다. Codex가 종료되면 HUD도 종료되고 커서와 입력 모드가 복원됩니다. 기본 실행의 출력은 터미널 스크롤백에 남으며 Codex의 종료 코드도 유지합니다.
+- 기본 실행에서는 마우스 휠로 지난 출력을 보고 바로 드래그해 선택·복사할 수 있습니다. 출력이 계속 바뀌면 `Alt+M`으로 화면을 고정한 뒤 선택합니다.
 - `Alt+L`로 HUD의 한글/영문을 실행 중에 전환합니다.
-- 터미널이 키를 프로그램에 전달하는 경우 `Shift+PageUp` / `Shift+PageDown`으로도 일반 화면의 스크롤백을 확인할 수 있습니다.
+- 터미널이 키를 프로그램에 전달하는 경우 `Shift+PageUp` / `Shift+PageDown`으로 가상 터미널의 일반 화면 기록을 탐색합니다. 기본 휠이 이동하는 실제 터미널 스크롤백과는 별도로 최대 5,000행을 유지합니다.
 
 Codex 옵션은 `--` 뒤에 전달합니다.
 
@@ -90,13 +152,20 @@ Codex의 `-C`/`--cd`를 전달하면 HUD도 해당 디렉터리의 세션을 찾
 | `Alt+L` | 한글 ↔ 영문 전환 |
 | `Alt+M` | 텍스트 선택 모드 켜기/끄기 |
 
-`Alt+L`은 현재 HUD의 표시 언어를 즉시 바꿉니다. 긴 갱신 주기를 설정했어도 다음 갱신을 기다리지 않습니다. 변경은 해당 실행에만 적용되고, 다음 실행의 기본 언어는 `--language`, 설치 시 지정한 언어 또는 설정 파일을 따릅니다.
+`Alt+L`은 현재 HUD의 표시 언어를 즉시 바꿉니다. 긴 갱신 주기를 설정했어도 다음 갱신을 기다리지 않습니다. 변경은 해당 실행에만 적용됩니다. 다음 실행에서는 CLI의 `--language`, 설정 파일, 기본값 `en` 순서로 언어를 정합니다. 설치 스킬의 자동 실행 함수는 설치 시 선택한 언어를 `--language`로 전달하며, 처음 설치할 때의 기본값은 `ko`입니다.
 
 기본 실행에서는 별도 단축키 없이 마우스로 텍스트를 드래그한 뒤 터미널의 복사 메뉴나 복사 단축키를 사용하세요. 화면 갱신 중에도 같은 내용을 선택하려면 `Alt+M`을 누릅니다. 선택 모드에서는 화면 갱신이 멈추고 HUD에 안내가 표시됩니다. Codex 작업과 기록 읽기는 백그라운드에서 계속 진행됩니다.
 
-마우스 휠과 Codex 마우스 입력을 사용하려면 `codex-hud start --mouse` 또는 `codex-hud watch --mouse`로 실행합니다. 이 설정은 드래그 시작을 포함한 마우스 입력을 캡처하므로, 복사할 때는 `Alt+M`으로 캡처를 잠시 해제하세요. 설정 파일의 `"mouse": true`로 저장할 수도 있으며, `--no-mouse`로 실행하면 저장된 값보다 우선해 기본 드래그 선택으로 돌아갑니다.
+기본 `start`의 휠은 실제 터미널 스크롤백을 이동합니다. 이전 출력을 보는 동안 HUD도 화면 밖으로 스크롤될 수 있습니다. HUD를 고정한 채 내부 목록과 Codex 기록을 휠로 넘기려면 `codex-hud start --mouse`를 사용합니다. Codex가 마우스 모드를 요청하면 해당 입력도 전달합니다. `watch --mouse`는 HUD 목록만 스크롤합니다. 마우스 캡처는 드래그 시작도 가로채므로, 이 모드에서 복사할 때는 `Alt+M`으로 잠시 해제하세요. 설정 파일의 `"mouse": true`로 저장할 수도 있으며, `--no-mouse`는 저장된 값보다 우선해 기본 휠 스크롤과 드래그 선택으로 돌아갑니다.
 
-다시 `Alt+M`을 누르면 최신 화면이 표시되고, `--mouse`를 켠 경우에만 마우스 캡처가 돌아옵니다. `Esc`, 일반 키보드 입력, 언어 전환, 터미널 크기 변경도 선택 모드를 종료합니다. 단축키는 대화형 `watch`에서도 동작하며, `start --tmux`에서는 HUD 패널을 선택한 상태에서 사용합니다. `Alt` 조합이 HUD에 전달되도록 터미널의 단축키 설정이 허용해야 합니다.
+다시 `Alt+M`을 누르면 화면 갱신을 재개하고, `--mouse`를 켠 경우에만 마우스 캡처가 돌아옵니다. `Esc`, 일반 키보드 입력, 언어 전환, 터미널 크기 변경도 선택 모드를 종료합니다. Inline에서 `Alt+M`이나 `Esc`로 선택을 끝내면 가상 터미널에서 탐색하던 위치를 유지합니다. 최신 출력이 있는 맨 아래로 돌아가려면 `Shift+PageDown`으로 이동하거나 Codex에 일반 텍스트를 입력합니다. 단축키는 대화형 `watch`에서도 동작하며, `start --tmux`에서는 HUD 패널을 선택한 상태에서 사용합니다. `Alt` 조합이 HUD에 전달되도록 터미널의 단축키 설정이 허용해야 합니다.
+
+Inline 선택 모드의 위·아래 방향키는 출력 기록을 탐색하며 Codex의 명령 이력을 바꾸지 않습니다. 선택 모드 밖에서는 방향키가 그대로 Codex에 전달됩니다.
+
+화면을 고정한 동안 새 출력의 실제 터미널 기록 전달도 대기합니다. 대기열은 최대
+5,000행이며 초과분은 오래된 행부터 제거합니다. 고정한 채 Codex가 종료되면
+아직 전달되지 않은 출력은 터미널 기록에 남지 않으므로, 종료 전에 선택 모드를
+해제하세요. 이미 전달한 출력은 종료 후에도 남습니다.
 
 ### tmux로 실행하기 (선택)
 
@@ -206,7 +275,7 @@ status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-rem
 | --- | --- |
 | `codex-hud` 또는 `codex-hud watch` | 실시간 HUD |
 | `codex-hud start` | 현재 터미널에서 Codex 실행, 전체 HUD를 아래에 고정 |
-| `codex-hud start --mouse` | 마우스 휠 사용, 복사할 때는 `Alt+M`으로 캡처 해제 |
+| `codex-hud start --mouse` | HUD를 고정한 내부 휠 스크롤, 복사할 때는 `Alt+M`으로 캡처 해제 |
 | `codex-hud start --tmux` | 선택적으로 기존 tmux 방식 사용 |
 | `codex-hud status` | 한 번 출력 |
 | `codex-hud status --json` | 정규화된 JSON 데이터 |
@@ -241,7 +310,7 @@ codex-hud status --ascii --no-color --no-git --width 80
 
 `watch`를 파일로 리다이렉트하거나 파이프로 연결하면 한 번 출력하고 종료합니다. `--json`이나 `--once`로도 단일 출력을 선택할 수 있습니다.
 
-`start`에 `--json` 또는 `--once`를 주면 오류로 종료합니다. `--tmux`는 `start`에서만 사용할 수 있습니다. `doctor --json`의 `inline.available`은 PTY 모듈 가용성을 나타내며, 확인된 오류 원인은 `inline.error`에 표시됩니다. `tmux` 항목은 선택적 실행 방식의 설치 여부입니다.
+`start`에 `--json` 또는 `--once`를 주면 오류로 종료합니다. `setup`도 `--json`을 지원하지 않습니다. `--tmux`와 `--` 뒤의 Codex 인자는 `start`에서만 사용할 수 있습니다. `doctor --json`의 `inline.available`은 PTY 모듈 가용성을 나타내며, 확인된 오류 원인은 `inline.error`에 표시됩니다. `tmux` 항목은 선택적 실행 방식의 설치 여부입니다. `doctor`는 의존성이 없어도 진단 결과를 출력하므로 종료 코드뿐 아니라 각 항목을 확인해야 합니다.
 
 ### 세션 선택
 
@@ -256,7 +325,7 @@ codex-hud status --ascii --no-color --no-git --width 80
 
 ### 환경 설정
 
-`$CODEX_HOME/codex-hud.json` 또는 `~/.codex/codex-hud.json`에 원하는 항목을 넣습니다. CLI 옵션이 파일보다 우선합니다. `examples/config.json`을 참고하세요.
+`$CODEX_HOME/codex-hud.json` 또는 `~/.codex/codex-hud.json`에 원하는 항목을 넣습니다. `--codex-home`을 지정하면 그 디렉터리의 `codex-hud.json`을 읽으며, `--config`는 기본 파일 대신 사용할 JSON 파일을 지정합니다. 적용 순서는 기본값 → 선택한 설정 파일 → 명시한 CLI 옵션입니다. 아래는 한글 표시를 선택한 [설정 예시](examples/config.json)입니다.
 
 ```json
 {
@@ -272,29 +341,37 @@ codex-hud status --ascii --no-color --no-git --width 80
 }
 ```
 
-| 설정 | 허용 값 |
-| --- | --- |
-| `preset` | `full`, `essential`, `minimal` |
-| `language` | `en`, `ko` |
-| `interval` | 200–60000ms |
-| `width` | `null` 또는 1–1000열 |
-| `pathLevels` | 1–3 |
-| `color`, `ascii`, `git` | `true` / `false` |
-| `mouse` | `false`(기본 드래그 선택) / `true`(휠·마우스 입력 캡처) |
+| 설정 | 허용 값 | 기본값 |
+| --- | --- | --- |
+| `preset` | `full`, `essential`, `minimal` | `full` |
+| `language` | `en`, `ko` | `en` |
+| `interval` | 200–60000ms | `1000` |
+| `width` | `null` 또는 1–1000열 | `null` |
+| `pathLevels` | 1–3 | `1` |
+| `color` | `true` / `false` | `true` |
+| `ascii` | `true` / `false` | `false` |
+| `git` | `true` / `false` | `true` |
+| `mouse` | `false`(기본 터미널 휠·드래그 선택) / `true`(HUD·가상 화면 마우스 캡처) | `false` |
 
-기본 언어는 영문입니다. `NO_COLOR`가 설정되어 있거나 출력이 터미널이 아니면 색상을 사용하지 않습니다. 한글과 이모지의 표시 폭을 계산해 좁은 터미널에서도 줄이 넘치지 않도록 자릅니다.
+기본 언어는 영문입니다. `NO_COLOR`가 설정되었거나 `TERM=dumb`이거나 출력이 터미널이 아니면 색상을 사용하지 않습니다. 한글과 이모지의 표시 폭을 계산해 좁은 터미널에서도 줄이 넘치지 않도록 자릅니다.
+
+기본 설정 파일이 없으면 기본값을 사용합니다. 명시한 `--config` 파일이 없거나 JSON 형식·설정 이름·값이 잘못되면 오류로 종료합니다. 설정 파일의 최대 크기는 64KiB입니다. `--help`와 `--version`은 설정 파일을 읽지 않으므로 설정 오류가 있어도 사용할 수 있습니다.
 
 ## 데이터 해석
 
-컨텍스트 사용률은 **가장 최근 응답의 `total_tokens` / `model_context_window`**입니다. 누적 사용량을 분자로 쓰거나, 입력 토큰에 포함된 캐시 토큰을 다시 더하지 않습니다. Codex 내장 상태줄은 기본 토큰을 보정할 수 있으므로 그 비율과는 다를 수 있습니다.
+컨텍스트 사용률은 **가장 최근 응답의 `total_tokens` / `model_context_window`**로 계산하고 최대 100%로 제한합니다. 누적 사용량을 분자로 쓰거나, 입력 토큰에 포함된 캐시 토큰을 다시 더하지 않습니다. Codex 내장 상태줄은 기본 토큰을 보정할 수 있으므로 그 비율과는 다를 수 있습니다.
 
 `compacted` 기록이 들어오면 이전 컨텍스트 수치를 비우고 다음 사용량 기록을 기다립니다. 정보가 없을 때는 0%를 만들지 않고 `—`/`unavailable`로 표시합니다.
 
 사용 한도는 **해당 세션이 마지막으로 기록한 스냅샷**입니다. HUD가 계정 서버에 조회하지 않으므로 다른 세션의 사용량이나 오랫동안 멈춘 세션의 최신 잔여량은 반영되지 않을 수 있습니다. API 키 기반 세션 등에서는 사용 한도 기록 자체가 없을 수 있습니다. `resetsAt`은 Unix 초, 나머지 JSON 시각 값은 밀리초입니다.
 
-도구는 최근 100개, 에이전트·스킬·플러그인은 각각 최근 40개, 계획은 최대 100개를 유지합니다. 도구 수는 이 최근 활동 범위 안의 수입니다. 로그 정책·Codex 버전에 따라 실행 중 이벤트가 기록되지 않으면 해당 활동은 결과가 기록된 뒤 표시될 수 있습니다. 도구 이름·짧은 실행 대상·계획 단계·스킬 이름·플러그인 메타데이터는 출력되지만 프롬프트, 추론 본문, 도구 출력 전체, 스킬 문서 본문은 JSON 상태에 보관하지 않습니다.
+도구는 최대 100개를 유지하며, 한도를 넘으면 가장 오래된 비실행 항목부터 제거합니다. 에이전트·스킬·플러그인은 각각 최근 40개, 계획은 최대 100개를 유지합니다. 도구 수는 이 추적 범위 안의 수입니다. 로그 정책·Codex 버전에 따라 실행 중 이벤트가 기록되지 않으면 해당 활동은 결과가 기록된 뒤 표시될 수 있습니다. 도구 이름·짧은 실행 대상·계획 단계·스킬 이름·플러그인 메타데이터는 출력되지만 프롬프트, 추론 본문, 도구 출력 전체, 스킬 문서 본문은 JSON 상태에 보관하지 않습니다.
 
 ## 문제 해결
+
+**휠을 올리면 이전 명령이 입력되고 출력 기록이 스크롤되지 않습니다.**
+
+`codex-hud --version`으로 `0.6.0` 이상인지 확인하고 실행 중인 HUD를 재시작하세요. `codex-hud start --no-mouse`는 저장된 캡처 설정도 해제하고 실제 터미널 스크롤백을 사용합니다. Inline 실행은 Codex에 `--no-alt-screen`을 추가해 출력 기록을 유지합니다. 기본 휠 입력은 Codex의 방향키 입력으로 전달되지 않습니다.
 
 **마우스로 드래그해도 텍스트가 선택되지 않습니다.**
 
@@ -318,7 +395,7 @@ tmux를 설치해 PATH에서 실행할 수 있게 하거나, 기본 `codex-hud s
 
 **수치가 바로 바뀌지 않습니다.**
 
-HUD는 기본 1초 간격으로 로그를 읽습니다. Codex가 이벤트를 기록한 시점에 갱신되며 토큰 스트리밍 중의 추정치를 만들지 않습니다. Git 상태는 최대 3초 간격으로 확인합니다.
+HUD는 기본 1초 간격으로 로그를 읽습니다. Codex가 이벤트를 기록한 시점에 갱신되며 토큰 스트리밍 중의 추정치를 만들지 않습니다. Git 상태는 HUD 갱신 시 확인하되, 같은 디렉터리는 최소 3초 간격으로 조회합니다.
 
 **깨진 문자가 보입니다.**
 
@@ -330,8 +407,12 @@ HUD는 기본 1초 간격으로 로그를 읽습니다. Codex가 이벤트를 �
 
 ## 개발
 
+소스 체크아웃에서 실행합니다. npm 실행 패키지에는 테스트와 플러그인의 설치
+스크립트가 포함되지 않습니다. 개발 환경과 작업 순서는 [온보딩](docs/onboarding.md),
+변경 영역별 검증 명령은 [기여 지침](CONTRIBUTING.md)을 참고하세요.
+
 ```bash
-npm install
+npm ci
 npm test
 npm run check
 npm run test:installer
@@ -369,6 +450,7 @@ src/inline.js       한 터미널 실행·입력·리사이즈·복원
 src/pty.js          Codex PTY와 실행 환경
 src/codex-args.js   Codex 실행 옵션과 세션 선택 문맥
 src/screen.js       가상 터미널과 고정 HUD 화면 합성
+src/scrollback.js   Codex 출력의 실제 터미널 스크롤백 전달
 src/viewport.js     긴 HUD 목록의 스크롤과 표시 범위
 src/output.js       이벤트 처리를 막지 않는 터미널 출력
 src/hud-source.js   하단 HUD의 증분 데이터 읽기

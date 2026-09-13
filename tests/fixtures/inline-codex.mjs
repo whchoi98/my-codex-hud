@@ -31,7 +31,8 @@ function draw(label = 'READY') {
   process.stdout.write('\x1b[?2004h\x1b[?25h');
 }
 draw();
-record({ type: 'ready', columns: process.stdout.columns, rows: process.stdout.rows, pid: process.pid });
+record({ type: 'ready', columns: process.stdout.columns, rows: process.stdout.rows,
+  pid: process.pid, args: process.argv.slice(2) });
 process.stdout.on('resize', () => {
   draw('RESIZED');
   record({ type: 'resize', columns: process.stdout.columns, rows: process.stdout.rows });
@@ -44,6 +45,10 @@ process.stdin.on('data', buffer => {
   if (data === 'e') process.exit(3);
   if (data === 'c') {
     process.stdout.write('\x1b[H\x1b[J\x1b[999;1HCHILD BOTTOM');
+  }
+  if (data === 'h') {
+    process.stdout.write('\x1b[H\x1b[J');
+    process.stdout.write(Array.from({ length: 50 }, (_, i) => `HISTORY-${i}\r\n`).join(''));
   }
 });
 if (process.env.HUD_TEST_IGNORE_TERM === '1') {

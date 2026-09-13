@@ -91,6 +91,227 @@ test('layout reserves full HUD rows but keeps Codex usable in a short terminal',
   });
 });
 
+test('native scrollback keeps past Codex output in the host normal buffer without capturing the mouse', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  screen.setHud('persistent HUD');
+  await screen.write(Array.from({ length: 30 }, (_, i) => `OUTPUT-${i}\r\n`).join(''));
+  await paint();
+  assert.equal(outer.buffer.active.type, 'normal');
+  assert.equal(outer.modes.mouseTrackingMode, 'none');
+  assert.ok(outer.buffer.normal.baseY > 0, 'the host must have real scrollback for native wheel scrolling');
+  const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+    outer.buffer.normal.getLine(i).translateToString(true));
+  assert.equal(history[0], 'OUTPUT-0');
+  assert.ok(history.includes('OUTPUT-10'));
+  assert.ok(history.every(line => !line.includes('HUD')), 'HUD redraws must not enter terminal history');
+  assert.match(lines(outer)[9], /persistent HUD/);
+  outer.scrollLines(-8);
+  const before = lines(outer);
+  screen.setHud('updated HUD');
+  await paint();
+  assert.deepEqual(lines(outer), before, 'HUD repaint must not pull the host out of native scrollback');
+  assert.equal(screen.input('\x1b[A'), '\x1b[A', 'real Up-arrow input must retain Codex history behavior');
+});
+
+test('native scrollback advances once across repeated redraws and emulator history trimming', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  screen.terminal.options.scrollback = 10;
+  screen.setHud('HUD');
+  for (let i = 0; i < 50; i += 1) {
+    await screen.write(`LINE-${i}\r\n`);
+    await paint();
+    await paint(true);
+  }
+  const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+    outer.buffer.normal.getLine(i).translateToString(true)).filter(line => line.startsWith('LINE-'));
+  assert.ok(history.length > 30, 'host history must survive the emulator history limit');
+  assert.deepEqual(history, Array.from({ length: history.length }, (_, i) => `LINE-${i}`));
+});
+
+test('native scrollback keeps normal output once across alternate child buffers', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  screen.setHud('HUD');
+  await screen.write(Array.from({ length: 25 }, (_, i) => `NORMAL-${i}\r\n`).join('')
+    + '\x1b[?1049hALT SCREEN');
+  await paint();
+  await screen.write('\x1b[HREDRAW ALT');
+  await paint();
+  await screen.write('\x1b[?1049l'
+    + Array.from({ length: 15 }, (_, i) => `NORMAL-${i + 25}\r\n`).join(''));
+  await paint();
+  const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+    outer.buffer.normal.getLine(i).translateToString(true));
+  assert.ok(history.length > 20);
+  assert.ok(history.every(line => !line.includes('ALT') && !line.includes('HUD')));
+  assert.deepEqual(history, Array.from({ length: history.length }, (_, i) => `NORMAL-${i}`));
+});
+
+test('native scrollback does not replay history after a display clear', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  await screen.write(Array.from({ length: 30 }, (_, i) => `BEFORE-${i}\r\n`).join(''));
+  await paint();
+  const before = outer.buffer.normal.baseY;
+  await screen.write('\x1b[2J\x1b[Hcleared display');
+  await paint();
+  assert.equal(outer.buffer.normal.baseY, before);
+});
+
+test('native scrollback captures new output from the start after a full terminal reset', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  await screen.write(Array.from({ length: 30 }, (_, i) => `OLD-${i}\r\n`).join(''));
+  await paint();
+  await screen.write('\x1bc' + Array.from({ length: 40 }, (_, i) => `NEW-${i}\r\n`).join(''));
+  await paint();
+  const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+    outer.buffer.normal.getLine(i).translateToString(true));
+  assert.ok(history.includes('OLD-0'));
+  assert.ok(history.includes('NEW-0'));
+  assert.ok(history.includes('NEW-20'));
+});
+
+for (const grownRows of [24, 40]) {
+  test(`native scrollback records fresh rows after a viewport grown to ${grownRows} is cleared`, async t => {
+    const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+    await screen.write(Array.from({ length: 30 }, (_, i) => `OLD-${i}\r\n`).join(''));
+    await paint();
+    outer.resize(40, grownRows);
+    await screen.resizeHost(40, grownRows);
+    await paint();
+    await screen.write('\x1b[2J\x1b[H' + Array.from({ length: 60 }, (_, i) => `NEW-${i}\r\n`).join(''));
+    await paint();
+    const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+      outer.buffer.normal.getLine(i).translateToString(true)).join('\n');
+    const ids = [...history.matchAll(/NEW-(\d+)/g)].map(match => Number(match[1]));
+    assert.ok(ids.length > 15);
+    assert.deepEqual(ids, Array.from({ length: ids.length }, (_, i) => i));
+  });
+}
+
+test('native host resize may retain visible alternate-child output but never HUD rows', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  screen.setHud('HUD-DO-NOT-ARCHIVE');
+  await screen.write('\x1b[?1049h\x1b[2J\x1b[H'
+    + Array.from({ length: 8 }, (_, i) => `ALT-${i}\r\n`).join(''));
+  await paint();
+  outer.resize(40, 6);
+  await screen.resizeHost(40, 6);
+  await paint();
+  const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+    outer.buffer.normal.getLine(i).translateToString(true)).join('\n');
+  assert.match(history, /ALT-/);
+  assert.doesNotMatch(history, /HUD-DO-NOT-ARCHIVE/);
+});
+
+for (const [fromRows, toRows] of [[16, 6], [24, 3], [3, 24]]) {
+  test(`native scrollback retains output exactly once when height changes ${fromRows} to ${toRows}`, async t => {
+    const { screen, outer, paint } = fixture(t, { rows: fromRows, nativeScrollback: true });
+    screen.setHud('HUD');
+    for (let i = 0; i < 30; i += 1) {
+      await screen.write(`ROW-${i}\r\n`);
+      await paint();
+    }
+    outer.resize(40, toRows);
+    await screen.resizeHost(40, toRows);
+    await paint();
+    for (let i = 30; i < 60; i += 1) {
+      await screen.write(`ROW-${i}\r\n`);
+      await paint();
+    }
+    const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+      outer.buffer.normal.getLine(i).translateToString(true)).filter(line => line.startsWith('ROW-'));
+    assert.ok(history.length > 25);
+    assert.deepEqual(history, Array.from({ length: history.length }, (_, i) => `ROW-${i}`));
+  });
+}
+
+for (const [columns, rows, nextColumns, nextRows] of [[80, 24, 40, 12], [80, 24, 40, 24], [40, 16, 80, 24]]) {
+  test(`native scrollback follows host reflow from ${columns}x${rows} to ${nextColumns}x${nextRows}`, async t => {
+    const { screen, outer, paint } = fixture(t, { columns, rows, nativeScrollback: true });
+    screen.setHud('HUD marker');
+    for (let i = 0; i < 30; i += 1) {
+      await screen.write(`ROW-${i}: ${'x'.repeat(60)}\r\n`);
+      await paint();
+    }
+    outer.resize(nextColumns, nextRows);
+    await screen.resizeHost(nextColumns, nextRows);
+    await paint();
+    for (let i = 30; i < 60; i += 1) {
+      await screen.write(`ROW-${i}: ${'x'.repeat(30)}\r\n`);
+      await paint();
+    }
+    const history = Array.from({ length: outer.buffer.normal.baseY }, (_, i) =>
+      outer.buffer.normal.getLine(i).translateToString(true)).join('\n');
+    const ids = [...history.matchAll(/ROW-(\d+)/g)].map(match => Number(match[1]));
+    assert.deepEqual(ids, Array.from({ length: ids.length }, (_, i) => i));
+    assert.ok(ids.length > 30);
+    assert.doesNotMatch(history, /HUD marker/);
+  });
+}
+
+test('a superseded native resize cannot overwrite the latest terminal size', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  screen.setHud('HUD');
+  await screen.write('visible output');
+  await paint();
+  outer.resize(30, 6);
+  const first = screen.resizeHost(30, 6);
+  outer.resize(40, 16);
+  const latest = screen.resizeHost(40, 16);
+  await Promise.all([first, latest]);
+  await paint();
+  assert.equal(screen.layout.columns, 40);
+  assert.equal(screen.layout.rows, 16);
+  assert.equal(screen.resizingHost, false);
+});
+
+test('native scrollback waits while text selection is frozen and resumes with the latest output', async t => {
+  const { screen, outer, paint } = fixture(t, { nativeScrollback: true });
+  screen.setHud('HUD');
+  await screen.write('initial\r\n');
+  await paint();
+  screen.setSelectionMode(true);
+  await paint();
+  const frozen = lines(outer);
+  const baseY = outer.buffer.normal.baseY;
+  await screen.write(Array.from({ length: 30 }, (_, i) => `FROZEN-${i}\r\n`).join(''));
+  await paint(true);
+  assert.deepEqual(lines(outer), frozen);
+  assert.equal(outer.buffer.normal.baseY, baseY);
+  screen.setSelectionMode(false);
+  await paint();
+  assert.ok(outer.buffer.normal.baseY > baseY);
+  assert.ok(lines(outer).some(line => line.includes('FROZEN-29')));
+  assert.equal(outer.modes.mouseTrackingMode, 'none');
+});
+
+test('captured wheel events never become command-history arrows in an alternate child buffer', async t => {
+  const { screen } = fixture(t, { mouse: true });
+  await screen.write('\x1b[?1049h');
+  assert.equal(screen.input('\x1b[<64;3;2M'), '');
+  assert.equal(screen.input('\x1b[<65;3;2M'), '');
+  assert.equal(screen.input('\x1b[A'), '\x1b[A');
+  assert.equal(screen.input('\x1b[B'), '\x1b[B');
+});
+
+test('selection browsing consumes wheel-translated arrows without leaving selection or editing Codex input', async t => {
+  const { screen, outer, paint } = fixture(t, { mouse: true });
+  await screen.write(Array.from({ length: 30 }, (_, i) => `COPY-${i}\r\n`).join(''));
+  screen.input('\x1bm');
+  await paint();
+  const before = screen.terminal.buffer.normal.viewportY;
+  assert.equal(screen.input('\x1b[A\x1bOA\x1b[A'), '');
+  assert.equal(screen.selecting, true);
+  assert.equal(screen.terminal.buffer.normal.viewportY, before - 3);
+  assert.equal(screen.input('\x1b[I'), '\x1b[I');
+  assert.equal(screen.terminal.buffer.normal.viewportY, before - 3);
+  await paint();
+  assert.equal(outer.modes.mouseTrackingMode, 'none');
+  assert.equal(screen.input('\x1bOB'), '');
+  assert.equal(screen.terminal.buffer.normal.viewportY, before - 2);
+  assert.equal(screen.input('x'), 'x');
+  assert.equal(screen.selecting, false);
+});
+
 test('child clears and out-of-range cursor movement cannot erase the full footer', async t => {
   const { screen, outer, paint } = fixture(t);
   screen.setHud('model\ncontext\nlimits\ntokens\ntools\nagents\nplan');

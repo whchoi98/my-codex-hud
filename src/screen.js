@@ -2,23 +2,28 @@ import xterm from '@xterm/headless';
 import unicode from '@xterm/addon-unicode11';
 import { HudViewport } from './viewport.js';
 import { renderSelectionHint } from './render.js';
+import { NativeScrollback, resizedHostHistory } from './scrollback.js';
 
 const heights = { full: 7, essential: 5, minimal: 2 };
 const csi = '\x1b[';
 const mouseModes = { none: 0, x10: 9, vt200: 1000, drag: 1002, any: 1003 };
 
-export function screenLayout(columns, rows, preset = 'full', contentRows = 0) {
+export function screenLayout(columns, rows, preset = 'full', contentRows = 0, nativeScrollback = false) {
   if (!Object.hasOwn(heights, preset)) throw new Error('Unknown HUD preset.');
   columns = Math.max(1, Math.min(1000, Math.floor(columns) || 80));
   rows = Math.max(1, Math.min(1000, Math.floor(rows) || 24));
   const wantedRows = preset === 'full' ? Math.max(heights[preset], contentRows) : heights[preset];
   const hudRows = Math.min(wantedRows, Math.max(0, rows - 5));
   const separatorRows = hudRows > 0 ? 1 : 0;
+  // Keep the physical cursor above the bottom row even when the HUD is hidden.
+  // Growing a normal terminal can otherwise pull old history into the viewport.
+  const paddingRows = nativeScrollback && hudRows === 0 && rows > 1 ? 1 : 0;
   // xterm requires at least two columns for wide characters. Keep the physical
   // width separate so neither child cells nor the HUD paint outside the host.
   return {
     columns, ptyColumns: Math.max(2, columns), rows,
-    codexRows: rows - hudRows - separatorRows, hudRows, separatorRows,
+    codexRows: rows - hudRows - separatorRows - paddingRows, hudRows, separatorRows,
+    ...(paddingRows ? { paddingRows } : {}),
   };
 }
 
@@ -70,15 +75,16 @@ function lineText(line, columns, cell) {
  */
 export class InlineScreen {
   constructor({ columns, rows, preset = 'full', ascii = false, color: useColor = true, mouse = false,
-    language = 'en', onLanguageChange = () => {},
+    language = 'en', nativeScrollback = false, onLanguageChange = () => {},
     onResponse = () => {}, onHostWrite = () => {} } = {}) {
     this.preset = preset;
     this.ascii = ascii;
     this.color = useColor;
     this.mouse = mouse;
+    this.nativeScrollback = nativeScrollback;
     this.language = language === 'ko' ? 'ko' : 'en';
     this.onLanguageChange = onLanguageChange;
-    this.layout = screenLayout(columns, rows, preset);
+    this.layout = screenLayout(columns, rows, preset, 0, nativeScrollback);
     this.terminal = new xterm.Terminal({
       cols: this.layout.ptyColumns, rows: this.layout.codexRows,
       allowProposedApi: true, scrollback: 5000,
@@ -88,6 +94,9 @@ export class InlineScreen {
     });
     this.terminal.loadAddon(new unicode.Unicode11Addon());
     this.terminal.unicode.activeVersion = '11';
+    const historyCell = this.terminal.buffer.normal.getNullCell();
+    this.scrollback = nativeScrollback ? new NativeScrollback(this.terminal,
+      line => lineText(line, this.layout.columns, historyCell)) : null;
     this.cursorVisible = true;
     this.cursorStyle = 0;
     this.sgrMouse = false;
@@ -97,6 +106,11 @@ export class InlineScreen {
     this.previousState = '';
     this.previousModes = '';
     this.previousMouse = '';
+    this.hostCursorRow = 1;
+    this.hostCursorColumn = 1;
+    this.hostLayout = this.layout;
+    this.hostResizeSequence = 0;
+    this.resizingHost = false;
     this.selecting = false;
     this.selectionPainted = false;
     this.pendingInput = '';
@@ -117,6 +131,8 @@ export class InlineScreen {
       return false;
     });
     parser.registerEscHandler({ final: 'c' }, () => {
+      this.scrollback?.capture();
+      this.scrollback?.reset();
       this.cursorVisible = true;
       this.cursorStyle = 0;
       this.sgrMouse = false;
@@ -155,7 +171,12 @@ export class InlineScreen {
 
   write(data) {
     if (this.disposed) return Promise.resolve();
-    return new Promise(resolve => this.terminal.write(data, resolve));
+    return new Promise((resolve, reject) => this.terminal.write(data, () => {
+      try {
+        this.scrollback?.capture();
+        resolve();
+      } catch (error) { reject(error); }
+    }));
   }
 
   setHud(text) {
@@ -164,15 +185,41 @@ export class InlineScreen {
   }
 
   resize(columns, rows) {
-    const next = screenLayout(columns, rows, this.preset, this.hud.lines.length);
+    const next = screenLayout(columns, rows, this.preset, this.hud.lines.length, this.nativeScrollback);
     this.hud.resize(next.hudRows);
     if (next.columns === this.layout.columns && next.rows === this.layout.rows
       && next.codexRows === this.layout.codexRows) return false;
     this.layout = next;
     this.terminal.resize(next.ptyColumns, next.codexRows);
+    this.scrollback?.capture({ resized: true });
     this.previousRows = [];
     this.previousState = '';
     return true;
+  }
+
+  async resizeHost(columns, rows) {
+    const next = screenLayout(columns, rows, this.preset, this.hud.lines.length, this.nativeScrollback);
+    const sequence = ++this.hostResizeSequence;
+    if (!this.scrollback || !this.previousRows.length
+      || (next.columns === this.hostLayout.columns && next.rows === this.hostLayout.rows)) {
+      this.resizingHost = false;
+      return this.resize(columns, rows);
+    }
+    this.resizingHost = true;
+    try {
+      const archived = await resizedHostHistory({
+        columns: this.hostLayout.columns, rows: this.hostLayout.rows,
+        nextColumns: next.columns, nextRows: next.rows, lines: this.previousRows,
+        cursorRow: this.hostCursorRow, cursorColumn: this.hostCursorColumn,
+        renderLine: lineText,
+      });
+      if (this.disposed || sequence !== this.hostResizeSequence) return false;
+      this.scrollback.accountHostScroll(archived);
+      this.resize(columns, rows);
+      return true;
+    } finally {
+      if (sequence === this.hostResizeSequence) this.resizingHost = false;
+    }
   }
 
   setSelectionMode(enabled) {
@@ -185,8 +232,10 @@ export class InlineScreen {
 
   /** Return only changed rows, followed by the child's actual cursor/modes. */
   frame({ force = false } = {}) {
+    if (this.resizingHost) return '';
     if (this.selecting && this.selectionPainted) return '';
     const { columns, codexRows, hudRows, separatorRows } = this.layout;
+    const history = this.scrollback?.take() ?? [];
     const buffer = this.terminal.buffer.active;
     const cell = buffer.getNullCell();
     const rows = Array.from({ length: codexRows }, (_, row) =>
@@ -200,6 +249,7 @@ export class InlineScreen {
       });
       for (let row = 0; row < hudRows; row += 1) rows.push(hud[row] ?? '');
     }
+    while (rows.length < this.layout.rows) rows.push('');
     const modes = this.terminal.modes;
     // Mouse reporting consumes the press that starts native text selection.
     // Capture (including child requests) requires opt-in; keyboard history
@@ -222,7 +272,7 @@ export class InlineScreen {
     const state = `${csi}${this.cursorStyle} q${cursor}${csi}?25${visible ? 'h' : 'l'}`;
     let changes = '';
     for (let row = 0; row < rows.length; row += 1) {
-      if (force || rows[row] !== this.previousRows[row]) {
+      if (force || history.length || rows[row] !== this.previousRows[row]) {
         changes += `${csi}${row + 1};1H${csi}0m${csi}2K${rows[row]}`;
       }
     }
@@ -233,10 +283,19 @@ export class InlineScreen {
     this.previousState = state;
     this.previousModes = modeState;
     this.previousMouse = mouseState;
+    this.hostCursorRow = Math.max(1, Math.min(codexRows, cursorRow + 1));
+    this.hostCursorColumn = Math.min(columns, buffer.cursorX + 1);
+    this.hostLayout = this.layout;
     this.selectionPainted = this.selecting;
     // Autowrap is disabled only in the outer screen; the emulator retains the
     // child's wrap mode. In particular, painting its last cell cannot scroll.
-    return `${csi}?2026h${csi}?25l${csi}?7l${changes}${csi}0m${changedModes}${state}${csi}?2026l`;
+    // LF at the host's bottom row creates real scrollback. Replace its top row
+    // first so only completed Codex output, never a HUD frame, enters history.
+    const historyOutput = history.length
+      ? `${csi}r` + history.map(line =>
+        `${csi}1;1H${csi}0m${csi}2K${line}${csi}${this.layout.rows};1H\r\n`).join('')
+      : '';
+    return `${csi}?2026h${csi}?25l${csi}?7l${historyOutput}${changes}${csi}0m${changedModes}${state}${csi}?2026l`;
   }
 
   /**
@@ -315,6 +374,13 @@ export class InlineScreen {
         this.setSelectionMode(!this.selecting);
         continue;
       }
+      // With capture released, alternate-screen terminals may translate the
+      // wheel into cursor keys. Selection browsing must never edit Codex's prompt.
+      if (this.selecting && ['\x1b[A', '\x1b[B', '\x1bOA', '\x1bOB'].includes(sequence)) {
+        this.terminal.scrollLines(sequence.endsWith('A') ? -1 : 1);
+        this.selectionPainted = false;
+        continue;
+      }
       const mouse = /^\x1b\[<(\d+);(\d+);(\d+)[Mm]$/.exec(sequence);
       if (mouse && (this.selecting || !this.mouse)) continue;
       if (!mouse) this.setSelectionMode(false);
@@ -343,7 +409,6 @@ export class InlineScreen {
           if (button & 64) {
             const direction = button & 1 ? 1 : -1;
             if (this.terminal.buffer.active.type === 'normal') this.terminal.scrollLines(direction * 3);
-            else output += `${csi}${direction < 0 ? 'A' : 'B'}`.repeat(3);
           }
           // Alt+M releases capture for native text selection.
           continue;
@@ -364,7 +429,7 @@ export class InlineScreen {
       }
       output += sequence;
     }
-    if (output || binary.length) this.terminal.scrollToBottom();
+    if (!this.selecting && (output || binary.length)) this.terminal.scrollToBottom();
     return binary.length ? Buffer.concat([...binary, Buffer.from(output, 'utf8')]) : output;
   }
 
@@ -384,6 +449,7 @@ export class InlineScreen {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.scrollback?.dispose();
     this.terminal.dispose();
   }
 }

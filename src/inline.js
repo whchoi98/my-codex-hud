@@ -8,10 +8,11 @@ import { renderWaiting } from './render.js';
 import { renderOptions } from './watch.js';
 import { truncateText } from './terminal.js';
 import { terminalOutput } from './output.js';
+import { inlineCodexArgs } from './codex-args.js';
 
 const ENTER = '\x1b[?1049h\x1b[?25l\x1b[?7l';
 const LEAVE = '\x1b[?2026l\x1b[0m\x1b[?9l\x1b[?1000l\x1b[?1002l\x1b[?1003l'
-  + '\x1b[?1006l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b>\x1b[?7h\x1b[0 q\x1b[?25h\x1b[?1049l';
+  + '\x1b[?1006l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b>\x1b[?7h\x1b[0 q\x1b[?25h';
 const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 const HIGH_WATER = 1024 * 1024;
 const LOW_WATER = 256 * 1024;
@@ -30,6 +31,7 @@ export async function launchInline(settings = {}) {
   const context = await prepareCodex(settings);
   if (context.note) stderr.write(`codex-hud: ${context.note}\n`);
   const hudSettings = context.hudSettings;
+  const nativeScrollback = !hudSettings.mouse;
   const source = new HudSource(hudSettings);
   const abort = new AbortController();
   const decoder = new StringDecoder('utf8');
@@ -129,6 +131,7 @@ export async function launchInline(settings = {}) {
     columns: stdout.columns, rows: stdout.rows, preset: hudSettings.preset,
     ascii: hudSettings.ascii, color: hudSettings.color, language: hudSettings.language,
     mouse: hudSettings.mouse,
+    nativeScrollback,
     onLanguageChange: language => {
       hudSettings.language = language;
       setHud(source.render(renderOptions(hudSettings, stdout)));
@@ -186,12 +189,13 @@ export async function launchInline(settings = {}) {
     }
   }
 
-  function onResize() {
+  async function onResize() {
     if (!active || terminated) return;
     try {
       const selecting = screen.selecting;
       screen.setSelectionMode(false);
-      const resized = screen.resize(stdout.columns, stdout.rows);
+      const resized = await screen.resizeHost(stdout.columns, stdout.rows);
+      if (!active || terminated) return;
       if (!resized && !selecting) return;
       if (resized) child.resize(screen.layout.ptyColumns ?? screen.layout.columns, screen.layout.codexRows);
       paint(true);
@@ -211,7 +215,12 @@ export async function launchInline(settings = {}) {
     if (wasFlowing !== true) stdin.pause();
     if (active) {
       active = false;
-      try { output.stream.write(LEAVE); } catch { /* Best effort after a broken output. */ }
+      const leaveScreen = nativeScrollback
+        ? screen.layout.hudRows > 0
+          ? `\x1b[${screen.layout.codexRows + 1};1H\x1b[J`
+          : `\x1b[${screen.layout.rows};1H\r\n`
+        : '\x1b[?1049l';
+      try { output.stream.write(LEAVE + leaveScreen); } catch { /* Best effort after a broken output. */ }
     }
   }
 
@@ -247,7 +256,8 @@ export async function launchInline(settings = {}) {
 
   try {
     child = await createPty({
-      file: context.file, args: context.args, cwd: context.cwd, env: context.env,
+      file: context.file, args: inlineCodexArgs(context.args),
+      cwd: context.cwd, env: context.env,
       cols: screen.layout.ptyColumns ?? screen.layout.columns, rows: screen.layout.codexRows,
     });
     const exitListener = child.onExit(event => {
@@ -267,7 +277,12 @@ export async function launchInline(settings = {}) {
     listen(process, 'exit', emergencyRestore);
     stdin.setRawMode(true);
     active = true;
-    hostWrite(ENTER);
+    // Reserve a clean viewport while moving the user's existing terminal output
+    // into history. A normal host buffer keeps native wheel scrolling and drag
+    // selection available; opt-in mouse capture keeps the alternate-screen UI.
+    hostWrite(nativeScrollback
+      ? '\x1b[?25l\x1b[?7l\x1b[r' + '\r\n'.repeat(screen.layout.rows) + '\x1b[H'
+      : ENTER);
     setHud(renderWaiting(renderOptions(hudSettings, stdout)));
     paint(true);
     stdin.resume();

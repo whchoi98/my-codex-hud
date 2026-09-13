@@ -39,7 +39,7 @@ Options:
   --ascii                  ASCII bars and status symbols
   --no-color               Disable colors (also respects NO_COLOR)
   --no-git                 Skip Git status
-  --mouse                  Capture the mouse for wheel scrolling (default: off)
+  --mouse                  Capture the mouse for HUD/virtual scrolling (default: off)
   --no-mouse               Use native dragging, overriding saved mouse capture
   --json                   Output a single JSON snapshot (not start/setup)
   --once                   Print once, even in a terminal (not start)
@@ -51,13 +51,17 @@ use --session when multiple Codex sessions share the same directory.
 start uses one terminal, including the VS Code integrated terminal. It needs
 Codex on PATH, node-pty and an interactive terminal on Linux, macOS or WSL.
 The HUD stays below Codex on resize. Ctrl+C is forwarded to Codex; its exit
-restores the screen. Shift+PageUp/Shift+PageDown browse normal-screen scrollback.
-Drag text to select it, then use your terminal's copy command.
+restores terminal modes. Default start keeps output in native terminal scrollback:
+use the wheel to browse output and drag to select text for your terminal's copy command.
+--mouse keeps the alternate-screen HUD and captures wheel input instead.
+Inline start adds Codex's --no-alt-screen option so its output has scrollback.
+Shift+PageUp/Shift+PageDown browse the emulated normal-screen history.
 Alt+L switches the live HUD between English and Korean. Alt+M freezes the
 display for selection; press again to resume. With --mouse it also releases capture.
+While selecting, Up/Down browse output without changing Codex's command history.
 These shortcuts also work in interactive watch. Pasted text stays unchanged.
 full lists running agents only. Alt+PageUp/Alt+PageDown scroll overflowing HUD
-rows; watch also accepts PageUp/PageDown and arrow keys. --mouse enables the wheel.
+rows; watch also accepts PageUp/PageDown and arrow keys. --mouse enables HUD wheel scrolling.
 The header shows the recorded approval mode; full also lists observed skill reads.
 Use start --tmux for the optional tmux backend, or watch on native Windows.
 setup prints configuration without modifying files.

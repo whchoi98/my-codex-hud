@@ -10,6 +10,22 @@ const singleValueCodexOptions = new Set([
   '--add-dir', '-a', '--ask-for-approval',
 ]);
 
+/** Keep Codex output in its normal buffer for native or captured-wheel scrolling. */
+export function inlineCodexArgs(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--') break;
+    if (arg === '--no-alt-screen') return [...args];
+    if (singleValueCodexOptions.has(arg) || arg === '-C' || arg === '--cd') {
+      index += 1;
+    } else if (arg === '--image' || arg === '-i') {
+      while (index + 1 < args.length
+        && (args[index + 1] === '-' || !args[index + 1].startsWith('-'))) index += 1;
+    }
+  }
+  return ['--no-alt-screen', ...args];
+}
+
 /** Derive HUD selection context from validated cwd/argv without modifying them. */
 export function codexLaunchContext(cwd, args) {
   let hudCwd = cwd;
