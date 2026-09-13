@@ -4,6 +4,12 @@ Codex에게 HUD 설치와 진단을 맡기는 `codex-hud-install` 스킬입니�
 HUD npm 패키지를 포함하므로 원본 프로젝트 폴더 없이도 사용할 수 있습니다.
 플러그인을 등록하는 것만으로 HUD나 셸 설정이 변경되지는 않습니다.
 
+등록, 실행 파일 설치, 자동 실행 설정을 각각 확인합니다. 등록은
+`codex plugin list --json`, 실행 파일은 설치 결과의 절대 `command`와 `--version`,
+자동 실행 설정은 `doctor --json`의 `hud.autostart.configured`로 확인합니다.
+현재 셸에 함수가 활성화됐는지는 `source .../shell.sh` 후 `type -a codex`로
+별도 확인합니다. `hud.autostart.active: null`은 활성화 여부를 모른다는 뜻입니다.
+
 ## 사용
 
 플러그인 또는 스킬을 등록한 뒤 새 Codex 대화에서 요청합니다.
@@ -50,7 +56,7 @@ codex plugin add codex-hud@codex-hud
 ```
 
 **GitHub 설치 확인(2026-09-13):** 공개 `main`에서 위 명령으로 마켓플레이스 등록과
-`codex-hud` 0.6.0 설치를 확인했습니다. 단독 스킬의 GitHub 다운로드와
+`codex-hud` 플러그인 설치를 확인했습니다. 단독 스킬의 GitHub 다운로드와
 공개본 HUD 설치도 확인했습니다.
 `--scope project`와 `install-skill.py`는 0.6.0부터 제공합니다.
 
@@ -126,11 +132,11 @@ Node 헤더도 필요합니다. 설치 도구는 네이티브 빌드 출력을 �
 
 ## 다른 환경으로 옮기기
 
-`codex-hud-plugin-0.6.0.zip`에는 `.codex-plugin/plugin.json`과 설치 스킬,
+`codex-hud-plugin-0.7.0.zip`에는 `.codex-plugin/plugin.json`과 설치 스킬,
 실행 패키지가 들어 있습니다. Codex 플러그인 가져오기 기능 또는 사용 중인
 로컬 마켓플레이스에 등록할 수 있습니다. 이 플러그인의 식별자는 `codex-hud`입니다.
 
-스킬만 사용하려면 `codex-hud-install-0.6.0.zip`을 풀고
+스킬만 사용하려면 `codex-hud-install-0.7.0.zip`을 풀고
 `codex-hud-install` 폴더 안에서 아래 중 원하는 범위를 선택합니다.
 미리 보려면 `--dry-run`을 추가합니다.
 
@@ -165,6 +171,14 @@ HUD 실행 파일과 셸 설정은 아직 설치하지 않습니다. 등록한 �
 npm 실행 패키지에는 이 안내문만 포함되므로 설치 스크립트는 플러그인 ZIP이나
 단독 스킬 ZIP에서 사용합니다.
 
+설치 전에는 선택한 prefix의 상태와 버전을 확인할 수 있습니다. 이 명령은
+npm이나 Codex를 요구하지 않고 파일도 쓰지 않습니다. 기존 HUD를 실행할
+Node가 없거나 버전을 읽을 수 없으면 `unknown`으로 표시합니다.
+
+```bash
+python3 skills/codex-hud-install/scripts/install.py --status --prefix /absolute/prefix
+```
+
 ```bash
 python3 skills/codex-hud-install/scripts/install.py --scope user --dry-run --shell bash --autostart
 python3 skills/codex-hud-install/scripts/install.py --scope user --shell bash --autostart
@@ -179,7 +193,7 @@ python3 skills/codex-hud-install/scripts/install.py \
   --scope project --project-dir /path/to/project --shell none --autostart
 ```
 
-`install.py`의 범위 기본값은 기존 명령과 호환되는 `user`입니다.
+새 prefix의 기본 범위는 `user`이며, 기존 prefix는 저장된 범위를 복원합니다.
 사용자 설치에서 Zsh는 `--shell zsh`, 셸 시작 파일을 건드리지 않으려면
 `--shell none`을 사용합니다. `--shell none --autostart` 조합은 프로젝트 범위에서만
 허용하며 사용자 범위에서는 오류입니다. 이미 자동 실행이 켜진 사용자 설치를
@@ -241,6 +255,19 @@ Codex의 설정과 인증 파일, npm의 전역 prefix 설정은 수정하지 �
 별도 확인합니다. 프로젝트 설치는 PATH에 추가하지 않습니다. `status`는 저장된
 세션의 상태를 보여주며, 설치 목록이나 제거 명령은 아닙니다.
 
+0.7.0 `doctor`는 HUD 버전·패키지 위치·설치 prefix·범위·언어·자동 실행 설정과
+실제 PTY 시작 결과를 제공합니다. 활성 HUD 플러그인이 하나이면 동봉 버전을
+자동 비교하며, 비교할 스킬을 정확히 지정하려면 다음을 사용합니다.
+
+```bash
+"/absolute/prefix/bin/codex-hud" doctor --json \
+  --bundle /absolute/skill/path/assets/package.json
+```
+
+`--bundle`은 0.7.0부터 지원합니다. 이전 HUD는 기본 `doctor --json`과 새 설치
+도구의 `--status`를 사용하세요. 플러그인 등록과 실행 파일 설치는 별도이므로
+단독 스킬 설치에서 `plugin.status: not-registered`가 나오는 것은 오류가 아닙니다.
+
 기본 실행에서는 마우스로 바로 텍스트를 드래그해 선택하고 복사할 수 있습니다.
 실행 중에는 `Alt+L`로 HUD의 한글/영문을 전환하고, `Alt+M`으로 화면을 고정해
 선택할 수 있습니다. 기본 휠은 터미널의 과거 출력을 스크롤합니다.
@@ -254,6 +281,70 @@ Inline 선택 모드에서는 위·아래 방향키로 출력 기록을 탐색�
 진단의 `inline.available`이 true인지 확인하세요. 세션이 아직 없으면 HUD가
 대기 상태를 보일 수 있습니다. 화면 배치는 실제 TTY에서 확인해야 하며, Codex
 계정 API를 호출하거나 모델에 테스트 프롬프트를 보낼 필요는 없습니다.
+
+## HUD 실행 파일 업데이트
+
+마켓플레이스·플러그인을 갱신하면 스킬과 동봉 패키지가 바뀝니다. 설치된 HUD 실행
+파일은 별도이므로 새 Codex 대화에서 다음과 같이 요청합니다.
+
+```text
+$codex-hud-install 기존 설치 범위·경로·언어·자동 실행 설정을 유지하면서 HUD를 업데이트해줘.
+```
+
+직접 실행할 때는 최신 스킬의 절대 경로와 기존 설치 prefix를 사용합니다.
+
+```bash
+python3 /absolute/skill/path/scripts/install.py --status --prefix /absolute/existing/prefix
+python3 /absolute/skill/path/scripts/install.py --update --prefix /absolute/existing/prefix --dry-run
+python3 /absolute/skill/path/scripts/install.py --update --prefix /absolute/existing/prefix
+```
+
+`--status`의 `installedVersion`과 `bundledVersion`을 비교합니다.
+`versionComparison`은 동봉 버전이 더 새로우면 `upgrade`, 같으면 `same`,
+더 오래됐으면 `downgrade`입니다. 실행 파일이 없으면 `missing`, 설치 버전을
+확인할 수 없으면 `unknown`입니다. `pluginRegistration: not-checked`는
+플러그인 등록 여부를 검사하지 않았다는 뜻입니다.
+
+`--update`는 존재하는 실행 파일만 갱신하며, 사용자 지정 prefix·범위·프로젝트
+루트·언어·자동 실행 설정을 유지합니다. 사용자 셸 시작 파일은 다시 쓰지 않습니다.
+같은 버전이면 `unchanged`로 끝나며, 파일 손상 복구가 필요하면 별도로 복구합니다.
+업데이트에서는 `--shell`, `--rc-file`, `--language`, `--autostart`를 받지 않습니다.
+
+새 설치·업데이트는 `<prefix>/install-state.json`에 설정을 기록합니다.
+과거 설치에는 이 파일이 없을 수 있어 기존 `shell.sh`에서 정보를 복원합니다.
+프로젝트 루트를 확인할 수 없으면 임의로 추측하지 않으므로 기존 루트를
+`--project-dir /absolute/project`로 지정하세요.
+
+일반 설치와 업데이트 모두 npm 실행 전에 버전을 비교합니다. 다운그레이드는
+기본 차단하며, 의도적으로 더 오래된 동봉 버전을 설치할 때만 `--allow-downgrade`를
+사용합니다. 버전을 읽을 수 없는 상태는 이 옵션으로도 넘기지 않습니다.
+이 검사는 0.7.0 설치 스크립트의 기능이며, 과거 스킬 사본은 먼저 갱신해야 합니다.
+
+완료 후 반환된 절대 `command`로 버전과 `doctor --json`을 다시 확인합니다.
+실제 PTY 검사까지 통과해야 설치 완료로 처리합니다. 업데이트 보고서의
+`previousVersion`은 이전 버전, `installedVersion`과 `verifiedVersion`은 확인한
+현재 버전입니다. npm 실행 뒤 검증이 실패하면 일부 파일은 이미 바뀌었을 수 있으므로
+오류 단계와 실제 설치 상태를 확인하세요.
+
+## macOS PTY 실행 오류
+
+`posix_spawnp failed`가 발생하면 `doctor --json`의 `inline.probe`와
+`inline.helper`를 확인합니다. `node-pty` 1.1.0의 macOS helper는 npm 배포
+아카이브에서도 `0644`이며 실행 비트가 없습니다. HUD 0.7.0은 npm의
+`postinstall` 단계에서 알려진 helper 파일의 실행 비트를 보완합니다.
+
+`--ignore-scripts`로 설치했거나 설치 후 권한이 변경됐다면, 0.7.0 진단에 나온
+`repairCommand`를 실행하거나 설치된 HUD 패키지에서 다음을 실행합니다.
+
+```bash
+node /absolute/installed/my-codex-hud/src/repair-node-pty.js
+"/absolute/prefix/bin/codex-hud" doctor --json
+```
+
+복구는 실행 비트만 보완하며 `doctor` 자체는 권한을 변경하지 않습니다.
+0.6.x 이하의 `doctor`는 모듈 로딩만 확인했으므로 `available: true`여도
+실제 시작 실패를 놓칠 수 있었습니다. 0.7.0은 Node를 PTY로 실제 시작·종료하며
+Codex나 모델 요청을 실행하지 않습니다.
 
 ## 자동 실행 해제
 

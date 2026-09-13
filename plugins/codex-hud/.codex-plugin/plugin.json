@@ -1,7 +1,7 @@
 {
   "name": "codex-hud",
-  "version": "0.6.0",
-  "description": "Install the bundled Codex terminal HUD for a user or project with optional scoped shell autostart.",
+  "version": "0.7.0",
+  "description": "Inspect, install, and update the bundled Codex terminal HUD while preserving user/project scope and shell settings.",
   "author": {
     "name": "Codex HUD contributors"
   },
@@ -9,15 +9,16 @@
   "keywords": ["codex", "hud", "terminal", "installer"],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Codex HUD 설치",
-    "shortDescription": "사용자·프로젝트별 HUD 설치, 자동 실행과 진단",
-    "longDescription": "동봉된 Codex HUD와 설치 스킬을 사용자 전체 또는 특정 프로젝트 범위로 설치하고, 요청하면 Bash 또는 Zsh에서 해당 범위의 codex 실행에 HUD를 연결합니다.",
+    "displayName": "Codex HUD 설치·업데이트",
+    "shortDescription": "설치 상태 진단, 설정 보존 업데이트와 자동 실행",
+    "longDescription": "사용자·프로젝트별 HUD 설치 상태와 동봉 버전을 비교하고, 기존 경로·언어·자동 실행 설정을 보존해 업데이트합니다. 설치 시 macOS PTY 실행 권한과 실제 프로세스 시작도 확인합니다.",
     "developerName": "Codex HUD contributors",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "defaultPrompt": [
       "$codex-hud-install HUD를 설치하고 codex 실행 시 자동으로 켜지도록 설정해줘.",
       "$codex-hud-install 현재 프로젝트에만 HUD를 설치하고 자동 실행을 설정해줘.",
+      "$codex-hud-install 기존 설치 범위와 설정을 유지하면서 HUD를 업데이트해줘.",
       "$codex-hud-install 설치된 HUD의 상태를 점검해줘."
     ]
   }

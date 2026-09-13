@@ -15,10 +15,10 @@ Use focused tests while editing; choose the files that exercise the changed beha
 
 | Area | Focused check |
 | --- | --- |
-| CLI and configuration | `node --test tests/cli.test.js tests/config.test.js` |
+| CLI, installation diagnostics, and configuration | `node --test tests/cli.test.js tests/doctor.test.js tests/config.test.js` |
 | Session selection and parsing | `node --test tests/sessions.test.js tests/transcript.test.js tests/state.test.js` |
 | Skills, plugins, and display | `node --test tests/plugins.test.js tests/state.test.js tests/render.test.js` |
-| Terminal input and lifecycle | `node --test tests/screen.test.js tests/inline.test.js tests/pty.test.js tests/watch.test.js` |
+| Terminal input, lifecycle, and helper recovery | `node --test tests/screen.test.js tests/inline.test.js tests/pty.test.js tests/repair-node-pty.test.js tests/watch.test.js` |
 | tmux launch | `node --test tests/launch.test.js` |
 | Skill registration and HUD installation | `npm run test:installer` |
 
@@ -57,10 +57,10 @@ an upstream or publish as a side effect of documentation work.
 
 | 영역 | 개별 검증 |
 | --- | --- |
-| CLI와 설정 | `node --test tests/cli.test.js tests/config.test.js` |
+| CLI·설치 진단과 설정 | `node --test tests/cli.test.js tests/doctor.test.js tests/config.test.js` |
 | 세션 선택과 파싱 | `node --test tests/sessions.test.js tests/transcript.test.js tests/state.test.js` |
 | 스킬·플러그인과 표시 | `node --test tests/plugins.test.js tests/state.test.js tests/render.test.js` |
-| 터미널 입력과 수명 관리 | `node --test tests/screen.test.js tests/inline.test.js tests/pty.test.js tests/watch.test.js` |
+| 터미널 입력·수명 관리·helper 복구 | `node --test tests/screen.test.js tests/inline.test.js tests/pty.test.js tests/repair-node-pty.test.js tests/watch.test.js` |
 | tmux 실행 | `node --test tests/launch.test.js` |
 | 스킬 등록과 HUD 설치 | `npm run test:installer` |
 

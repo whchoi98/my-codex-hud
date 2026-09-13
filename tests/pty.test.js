@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import { constants } from 'node:fs';
-import { access, copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { access, chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createPty, prepareCodex, ptyAvailable } from '../src/pty.js';
@@ -13,7 +14,7 @@ const childSource = new URL('./fixtures/pty-child.cjs', import.meta.url);
 const posix = { skip: process.platform === 'win32' ? 'Inline PTYs require POSIX' : false };
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'codex-hud-pty-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codex-hud-pty-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin ' spaces");
   const cwd = join(root, "work ' $(touch INJECTED);\nproject");
@@ -586,7 +587,7 @@ test('prepareCodex defaults to process.env without mutating it', posix, async (t
   assert.equal(process.env.LINES, '999');
 });
 
-test('ptyAvailable loads the installed native dependency without launching Codex', posix, async (t) => {
+test('ptyAvailable probes the installed native dependency without launching Codex', posix, async (t) => {
   const f = await fixture(t);
   const originalPath = process.env.PATH;
   const originalLog = process.env.CODEX_HUD_PTY_STARTED;
@@ -598,10 +599,289 @@ test('ptyAvailable loads the installed native dependency without launching Codex
     if (originalLog === undefined) delete process.env.CODEX_HUD_PTY_STARTED;
     else process.env.CODEX_HUD_PTY_STARTED = originalLog;
   });
-  assert.deepEqual(await ptyAvailable(), { available: true });
-  assert.deepEqual(await ptyAvailable(), { available: true });
+  for (let i = 0; i < 2; i++) {
+    const status = await ptyAvailable();
+    assert.equal(status.available, true, status.error);
+    assert.equal(status.probe.status, 'ok');
+    assert.equal(status.probe.exitCode, 0);
+  }
   await assert.rejects(access(f.log), { code: 'ENOENT' });
 });
+
+async function isolatedAdapter(t, source, setup = async () => {}) {
+  const f = await fixture(t);
+  const isolated = join(f.root, 'isolated');
+  const dependency = join(isolated, 'node_modules', 'node-pty');
+  await mkdir(dependency, { recursive: true });
+  await Promise.all([
+    ...['pty.js', 'codex-args.js', 'config.js', 'repair-node-pty.js'].map(name =>
+      copyFile(new URL(`../src/${name}`, import.meta.url), join(isolated, name))),
+    writeFile(join(isolated, 'package.json'), JSON.stringify({ type: 'module' })),
+    writeFile(join(dependency, 'package.json'), JSON.stringify({ name: 'node-pty', main: 'index.cjs' })),
+    writeFile(join(dependency, 'index.cjs'), source),
+  ]);
+  await setup(dependency);
+  const adapter = await import(pathToFileURL(join(isolated, 'pty.js')).href);
+  const native = (await import(pathToFileURL(join(dependency, 'index.cjs')).href)).default;
+  return { ...f, adapter, native, dependency };
+}
+
+// Only the native boundary is substituted; the adapter owns subscriptions,
+// timeout, error classification and cleanup just as it does with node-pty.
+function probeNative(action) {
+  return `
+const { EventEmitter } = require('node:events');
+const state = { calls: [], kills: [], destroyed: false };
+exports.state = state;
+exports.spawn = (file, args, options) => {
+  state.calls.push({ file, args, options });
+  const child = state.child = new EventEmitter();
+  for (const [method, event] of [['onData', 'data'], ['onExit', 'exit']]) {
+    child[method] = callback => {
+      child.on(event, callback);
+      return { dispose: () => child.removeListener(event, callback) };
+    };
+  }
+  child.kill = signal => { state.kills.push(signal); };
+  child.destroy = () => { state.destroyed = true; };
+  child.resume = () => {};
+  ${action}
+  return child;
+};
+`;
+}
+
+function trackProbeTimers(t) {
+  const pending = new Set();
+  const schedule = globalThis.setTimeout;
+  const cancel = globalThis.clearTimeout;
+  t.mock.method(globalThis, 'setTimeout', (...args) => {
+    const timer = schedule(...args);
+    pending.add(timer);
+    return timer;
+  });
+  t.mock.method(globalThis, 'clearTimeout', timer => {
+    pending.delete(timer);
+    cancel(timer);
+  });
+  t.after(() => { for (const timer of pending) cancel(timer); });
+  return pending;
+}
+
+function assertProbeReleased(state, timers) {
+  for (const event of ['data', 'exit', 'error']) {
+    assert.equal(state.child.listenerCount(event), 0, `${event} listener leaked`);
+  }
+  assert.equal(timers.size, 0, 'probe timer leaked');
+}
+
+test('ptyAvailable rejects an importable dependency when native spawning fails', posix, async t => {
+  const f = await isolatedAdapter(t, `exports.spawn = () => { throw new Error('posix_spawnp failed.'); };`);
+  const timers = trackProbeTimers(t);
+  const status = await f.adapter.ptyAvailable({ cwd: f.settings.cwd });
+  assert.equal(status.available, false);
+  assert.equal(status.probe.status, 'spawn-failed');
+  assert.equal(status.executable, process.execPath);
+  assert.equal(status.cwd, f.settings.cwd);
+  assert.equal(status.platform, process.platform);
+  assert.equal(status.arch, process.arch);
+  assert.match(status.error, /posix_spawnp failed/);
+  assert.match(status.error, /codex-hud doctor/);
+  assert.equal(timers.size, 0);
+  await assert.rejects(access(f.log), { code: 'ENOENT' });
+});
+
+test('ptyAvailable waits for a successful exit, drains output and releases its listeners and timer', posix, async t => {
+  const f = await isolatedAdapter(t, probeNative(`
+  queueMicrotask(() => {
+    // A producer cannot finish a large write if nobody drains its PTY output.
+    if (!child.listenerCount('data')) return;
+    child.emit('data', 'probe output\\r\\n'.repeat(10_000));
+    child.emit('exit', { exitCode: 0, signal: 0 });
+  });`));
+  const timers = trackProbeTimers(t);
+  const status = await f.adapter.ptyAvailable({ cwd: f.settings.cwd, timeoutMs: 100 });
+  assert.equal(status.available, true);
+  assert.equal(status.probe.status, 'ok');
+  assert.equal(status.probe.exitCode, 0);
+  const { state } = f.native;
+  assert.equal(state.calls.length, 1);
+  assert.equal(state.calls[0].file, process.execPath);
+  assert.equal(state.calls[0].options.cwd, f.settings.cwd);
+  assert.equal(state.calls[0].options.env.NODE_OPTIONS, undefined);
+  assert.equal(state.calls[0].options.env.CODEX_HUD_PTY_STARTED, undefined);
+  assert.deepEqual(state.kills, []);
+  assertProbeReleased(state, timers);
+});
+
+for (const event of [{ exitCode: 1, signal: 0 }, { exitCode: 0, signal: 9 }]) {
+  test(`ptyAvailable rejects unsuccessful probe exit ${JSON.stringify(event)}`, posix, async t => {
+    const f = await isolatedAdapter(t, probeNative(`
+    queueMicrotask(() => child.emit('exit', ${JSON.stringify(event)}));`));
+    const timers = trackProbeTimers(t);
+    const status = await f.adapter.ptyAvailable();
+    assert.equal(status.available, false);
+    assert.equal(status.probe.status, 'exit-failed');
+    assert.equal(status.probe.exitCode, event.exitCode);
+    assert.equal(status.probe.signal, event.signal);
+    assert.deepEqual(f.native.state.kills, []);
+    assertProbeReleased(f.native.state, timers);
+  });
+}
+
+test('ptyAvailable bounds a hung probe and kills and releases it on timeout', { ...posix, timeout: 2000 }, async t => {
+  const f = await isolatedAdapter(t, probeNative(''));
+  const timers = trackProbeTimers(t);
+  const status = await f.adapter.ptyAvailable({ timeoutMs: 25 });
+  assert.equal(status.available, false);
+  assert.equal(status.probe.status, 'timeout');
+  assert.equal(status.probe.timeoutMs, 25);
+  assert.deepEqual(f.native.state.kills, ['SIGKILL']);
+  assert.equal(f.native.state.destroyed, true);
+  assertProbeReleased(f.native.state, timers);
+});
+
+test('a timed-out native probe terminates its real harmless child', { ...posix, timeout: 3000 }, async t => {
+  const require = createRequire(import.meta.url);
+  const f = await isolatedAdapter(t, `
+const native = require(${JSON.stringify(require.resolve('node-pty'))});
+const state = exports.state = {};
+exports.spawn = (file, args, options) => {
+  const child = state.child = native.spawn(file, ['--eval', 'setInterval(() => {}, 1000)'], options);
+  state.exited = new Promise(resolve => {
+    const listener = child.onExit(event => { state.done = true; listener.dispose(); resolve(event); });
+  });
+  return child;
+};`);
+  t.after(() => { if (!f.native.state.done) f.native.state.child?.kill('SIGKILL'); });
+  const status = await f.adapter.ptyAvailable({ timeoutMs: 50 });
+  assert.equal(status.available, false);
+  assert.equal(status.probe.status, 'timeout');
+  const exit = await f.native.state.exited;
+  assert.equal(exit.signal, 9);
+  assert.throws(() => process.kill(f.native.state.child.pid, 0), { code: 'ESRCH' });
+});
+
+test('ptyAvailable handles asynchronous native errors and cleans up the live probe', posix, async t => {
+  const f = await isolatedAdapter(t, probeNative(`
+  queueMicrotask(() => child.emit('error', Object.assign(new Error('PTY read failed'), { code: 'EBADF' })));`));
+  const timers = trackProbeTimers(t);
+  const status = await f.adapter.ptyAvailable();
+  assert.equal(status.available, false);
+  assert.equal(status.probe.status, 'spawn-failed');
+  assert.deepEqual(f.native.state.kills, ['SIGKILL']);
+  assert.equal(f.native.state.destroyed, true);
+  assertProbeReleased(f.native.state, timers);
+});
+
+test('ptyAvailable accepts node-pty EAGAIN reads and EIO closure only after a successful exit', posix, async t => {
+  const f = await isolatedAdapter(t, probeNative(`
+  queueMicrotask(() => {
+    child.emit('error', Object.assign(new Error('read EAGAIN'), { code: 'EAGAIN' }));
+    child.emit('error', Object.assign(new Error('read EIO'), { code: 'EIO' }));
+    child.emit('exit', { exitCode: 0, signal: 0 });
+  });`));
+  const status = await f.adapter.ptyAvailable();
+  assert.equal(status.available, true);
+  assert.equal(status.probe.exitCode, 0);
+  assert.deepEqual(f.native.state.kills, []);
+});
+
+test('createPty wraps native spawn failures with safe invocation context and remediation', posix, async t => {
+  const prompt = 'PRIVATE PROMPT WITH CREDENTIALS';
+  const f = await isolatedAdapter(t, `exports.spawn = () => {
+    throw new Error(${JSON.stringify(`posix_spawnp failed. ${prompt}`)});
+  };`);
+  await assert.rejects(f.adapter.createPty({
+    file: process.execPath, args: ['-e', prompt], cwd: f.settings.cwd, cols: 80, rows: 24,
+  }), error => {
+    assert.equal(error.code, 'ERR_PTY_SPAWN');
+    assert.equal(error.diagnostics.executable, process.execPath);
+    assert.equal(error.diagnostics.cwd, f.settings.cwd);
+    assert.equal(error.diagnostics.platform, process.platform);
+    assert.equal(error.diagnostics.arch, process.arch);
+    assert.ok(error.message.includes(process.execPath));
+    assert.ok(error.message.includes(f.settings.cwd));
+    assert.match(error.message, /codex-hud doctor/);
+    assert.match(error.message, /rebuild|reinstall/i);
+    assert.equal(error.message.includes(prompt), false);
+    assert.equal(JSON.stringify(error.diagnostics).includes(prompt), false);
+    assert.ok(error.cause instanceof Error);
+    return true;
+  });
+});
+
+for (const { arch, layout, mode, expected } of [
+  { arch: 'arm64', layout: 'build/Release', mode: 0o664, expected: 'not-executable' },
+  { arch: 'x64', layout: 'build/Debug', mode: null, expected: 'missing' },
+  { arch: 'arm64', layout: 'prebuilds/darwin-arm64', mode: 0o664, expected: 'not-executable' },
+  { arch: 'x64', layout: 'prebuilds/darwin-x64', mode: 0o755, expected: 'executable' },
+]) {
+  test(`macOS probe inspects the selected ${layout} helper (${expected}) without changing it`, posix, async t => {
+    const require = createRequire(import.meta.url);
+    const utilsPath = require.resolve('node-pty/lib/utils.js');
+    const hostAddon = resolve(dirname(utilsPath), require(utilsPath).loadNativeModule('pty').dir, 'pty.node');
+    const f = await isolatedAdapter(t, probeNative(`
+    queueMicrotask(() => child.emit('exit', { exitCode: 0, signal: 0 }));`)
+      + "\nrequire('./lib/utils.js').loadNativeModule('pty');\n", async dependency => {
+      await mkdir(join(dependency, 'lib'));
+      await mkdir(join(dependency, layout), { recursive: true });
+      await Promise.all([
+        copyFile(utilsPath, join(dependency, 'lib', 'utils.js')),
+        // Resolution uses this directory just like node-pty's UnixTerminal.
+        writeFile(join(dependency, 'lib', 'unixTerminal.js'), ''),
+        copyFile(hostAddon, join(dependency, layout, 'pty.node')),
+      ]);
+      if (layout !== 'build/Release') {
+        await mkdir(join(dependency, 'build', 'Release'), { recursive: true });
+        // An existing but unloadable addon/helper must not mask the chosen one.
+        await writeFile(join(dependency, 'build', 'Release', 'pty.node'), 'invalid native addon');
+        await writeFile(join(dependency, 'build', 'Release', 'spawn-helper'), 'decoy', { mode: 0o755 });
+      }
+      if (mode !== null) {
+        const helper = join(dependency, layout, 'spawn-helper');
+        await writeFile(helper, 'fixture helper');
+        await chmod(helper, mode);
+      }
+      for (const [key, value] of Object.entries({ platform: 'darwin', arch })) {
+        const descriptor = Object.getOwnPropertyDescriptor(process, key);
+        Object.defineProperty(process, key, { value });
+        t.after(() => Object.defineProperty(process, key, descriptor));
+      }
+    });
+    const helperPath = join(f.dependency, layout, 'spawn-helper');
+    const before = mode === null ? null : await stat(helperPath);
+    const status = await f.adapter.ptyAvailable();
+    assert.equal(status.helper?.path, helperPath);
+    assert.equal(status.helper.status, expected);
+    assert.equal(status.available, expected === 'executable', status.error);
+    assert.equal(f.native.state.calls.length, expected === 'executable' ? 1 : 0);
+    if (expected !== 'executable') {
+      assert.equal(status.probe.status, 'helper-unavailable');
+      assert.ok(status.error.includes(helperPath));
+      if (expected === 'not-executable') {
+        assert.equal(status.helper.mode, '0664');
+        assert.equal(status.helper.repairCommand[0], process.execPath);
+        assert.match(status.error, /ignore-scripts/);
+      }
+      await assert.rejects(f.adapter.createPty({
+        file: process.execPath, cwd: f.settings.cwd, cols: 80, rows: 24,
+      }), error => {
+        assert.equal(error.diagnostics.helper.path, helperPath);
+        assert.equal(error.diagnostics.helper.status, expected);
+        assert.ok(error.message.includes(helperPath));
+        return true;
+      });
+    }
+    if (before) {
+      const after = await stat(helperPath);
+      assert.equal(after.mode, before.mode);
+      assert.equal(after.ctimeMs, before.ctimeMs);
+    } else {
+      await assert.rejects(access(helperPath), { code: 'ENOENT' });
+    }
+  });
+}
 
 for (const brokenNative of [false, true]) {
   test(`${brokenNative ? 'broken native addon' : 'missing dependency'} yields actionable diagnostics and leaves preparation usable`, posix, async (t) => {
@@ -613,6 +893,7 @@ for (const brokenNative of [false, true]) {
       copyFile(new URL('../src/pty.js', import.meta.url), join(isolated, 'pty.js')),
       copyFile(new URL('../src/codex-args.js', import.meta.url), join(isolated, 'codex-args.js')),
       copyFile(new URL('../src/config.js', import.meta.url), join(isolated, 'config.js')),
+      copyFile(new URL('../src/repair-node-pty.js', import.meta.url), join(isolated, 'repair-node-pty.js')),
       writeFile(join(isolated, 'package.json'), JSON.stringify({ type: 'module' })),
       writeFile(join(dependency, 'package.json'), JSON.stringify({ main: 'index.cjs' })),
     ]);

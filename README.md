@@ -1,6 +1,6 @@
 # Codex HUD
 
-현재 버전: **0.6.0** · [버전별 변경 이력](CHANGELOG.md)
+현재 버전: **0.7.0** · [버전별 변경 이력](CHANGELOG.md)
 
 [문서 목차](docs/README.md) · [아키텍처](docs/architecture.md) · [온보딩](docs/onboarding.md) · [기여와 Git 작업](CONTRIBUTING.md)
 
@@ -34,6 +34,15 @@ Codex가 배포 소스와 플러그인 캐시를 관리하며, CLI 명령으로 
 처리할 수 있습니다. 플러그인을 등록한 뒤 새 Codex 대화에서 HUD 설치를 요청합니다.
 스킬·플러그인 등록과 HUD 실행 프로그램 설치는 별도 단계입니다.
 
+| 단계 | 확인 방법 |
+| --- | --- |
+| 플러그인·스킬 등록 | `codex plugin list --json`의 설치·활성 상태 또는 단독 스킬 등록 결과 |
+| HUD 실행 파일 설치 | 설치 결과의 절대 `command`로 `--version`과 `doctor --json` 실행 |
+| 자동 실행 설정 | `doctor`의 `hud.autostart.configured` 확인 후 해당 터미널에서 `source .../shell.sh`와 `type -a codex`로 활성화 확인 |
+
+`plugin add`가 성공해도 HUD 실행 파일은 아직 없을 수 있습니다. 자동 실행이
+설정되어 있어도 이미 열린 다른 터미널에는 아직 적용되지 않았을 수 있습니다.
+
 ### GitHub 플러그인 (권장)
 
 `codex plugin marketplace --help`가 동작하는 CLI에서 실행합니다.
@@ -52,9 +61,10 @@ codex plugin add codex-hud@codex-hud
 ```
 
 **GitHub 설치 확인(2026-09-13):** 공개 `main`에서 위 명령으로 마켓플레이스 등록과
-`codex-hud` 0.6.0 설치를 확인했습니다. 단독 스킬과 소스 설치도 사용할 수 있습니다.
+`codex-hud` 플러그인 설치를 확인했습니다. 단독 스킬과 소스 설치도 사용할 수 있습니다.
 프로젝트 범위 설치는 0.6.0부터 지원합니다.
-실행 환경과 결과는 [GitHub 설치 검증](docs/verification-github-install.md)에 기록했습니다.
+실행 환경과 결과는 [GitHub 설치 검증](docs/verification-github-install.md)과
+[0.7.0 진단·업데이트 검증](docs/verification-0.7.0.md)에 기록했습니다.
 
 ### 단독 스킬 (선택)
 
@@ -95,6 +105,25 @@ $codex-hud-install 현재 프로젝트에만 HUD를 설치하고 자동 실행�
 단독 스킬 ZIP을 `dist/`에 만듭니다. 원본 프로젝트 폴더를 옮기지 않아도 설치할
 수 있으며, npm 의존성은 네트워크 또는 기존 캐시에서 가져옵니다.
 플러그인 등록만으로 HUD나 셸 설정이 바뀌지는 않습니다.
+
+### HUD 업데이트
+
+위의 마켓플레이스·플러그인 갱신 명령은 설치 스킬과 동봉 패키지를 갱신합니다.
+**설치된 HUD 실행 파일은 별도로 업데이트해야 합니다.** 플러그인을 갱신한 뒤
+새 Codex 대화에서 요청합니다.
+
+```text
+$codex-hud-install 기존 설치 범위·경로·언어·자동 실행 설정을 유지하면서 HUD를 업데이트해줘.
+```
+
+0.7.0 설치 도구의 `--status`는 기존 설치와 동봉 버전을 비교하고, `--update`는
+선택한 기존 prefix를 갱신합니다. 같은 버전이면 재설치하지 않으며 사용자 셸
+시작 파일도 수정하지 않습니다. 이전 버전으로 내려가거나 설치 버전을 읽을 수
+없으면 npm 실행 전에 차단합니다. 오래된 스킬은 먼저 갱신하세요. 과거에 배포한
+설치 스크립트에 이 보호 기능이 자동으로 생기는 것은 아닙니다.
+
+직접 실행하는 명령과 예외 처리 방법은 [설치·업데이트 안내](plugins/codex-hud/README.md)를
+참고하세요. 설치된 파일이 손상된 경우에는 업데이트와 별도로 복구가 필요합니다.
 
 ## 빠른 시작
 
@@ -283,8 +312,9 @@ status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-rem
 | `codex-hud status --json` | 정규화된 JSON 데이터 |
 | `codex-hud demo` | 세션이 없어도 볼 수 있는 예시 |
 | `codex-hud setup` | 내장 상태줄 TOML 출력 |
-| `codex-hud doctor` | Node, Codex, inline PTY, 선택적 tmux, 세션 경로 확인 |
+| `codex-hud doctor` | HUD 설치·동봉 버전·자동 실행 설정, 실제 PTY 시작과 터미널 환경 확인 |
 | `codex-hud doctor --json` | 진단 결과를 JSON으로 출력 |
+| `codex-hud doctor --bundle /path/to/skill/assets/package.json` | 지정한 스킬의 동봉 버전과 현재 실행한 HUD를 비교 |
 | `codex-hud --help` | 전체 옵션 |
 
 자주 쓰는 옵션:
@@ -312,7 +342,34 @@ codex-hud status --ascii --no-color --no-git --width 80
 
 `watch`를 파일로 리다이렉트하거나 파이프로 연결하면 한 번 출력하고 종료합니다. `--json`이나 `--once`로도 단일 출력을 선택할 수 있습니다.
 
-`start`에 `--json` 또는 `--once`를 주면 오류로 종료합니다. `setup`도 `--json`을 지원하지 않습니다. `--tmux`와 `--` 뒤의 Codex 인자는 `start`에서만 사용할 수 있습니다. `doctor --json`의 `inline.available`은 PTY 모듈 가용성을 나타내며, 확인된 오류 원인은 `inline.error`에 표시됩니다. `tmux` 항목은 선택적 실행 방식의 설치 여부입니다. `doctor`는 의존성이 없어도 진단 결과를 출력하므로 종료 코드뿐 아니라 각 항목을 확인해야 합니다.
+`start`에 `--json` 또는 `--once`를 주면 오류로 종료합니다. `setup`도 `--json`을 지원하지 않습니다. `--tmux`와 `--` 뒤의 Codex 인자는 `start`에서만 사용할 수 있습니다. `--bundle`은 `doctor` 전용입니다. `doctor`는 의존성이 없어도 진단 결과를 출력하므로 종료 코드뿐 아니라 각 항목을 확인해야 합니다.
+
+### 설치 상태와 버전 진단
+
+진단 대상은 **현재 실행한 HUD**입니다. 여러 설치가 있으면 설치 결과의 절대
+`command`를 사용하세요. 주요 JSON 필드는 다음과 같습니다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `hud.version`, `hud.command`, `hud.packageRoot` | 실행 중인 HUD 버전·명령·패키지 위치 |
+| `hud.prefix`, `hud.scope`, `hud.project` | 설치 prefix와 사용자·프로젝트 범위. 소스 실행이나 미관리 설치는 일부 값이 `null`일 수 있음 |
+| `hud.autostart.configured`, `hud.language` | 저장된 자동 실행 설정과 언어 |
+| `hud.autostart.active` | 현재 셸의 함수 활성화는 자식 프로세스에서 확인할 수 없어 `null` |
+| `plugin.status` | 활성 HUD 플러그인 등록 상태. 단독 스킬 설치에서는 미등록이 정상일 수 있음 |
+| `bundle.version`, `bundle.comparison` | 동봉 버전과의 비교: `upgrade`, `same`, `downgrade`, `unknown` |
+| `inline.available`, `inline.probe` | 네이티브 모듈 로딩과 실제 Node PTY 프로세스의 시작·종료 결과 |
+| `inline.helper` | macOS에서 선택된 `spawn-helper` 경로·실행 권한과 복구 명령 |
+| `platform`, `arch`, `nodeExecutable`, `terminal` | OS·아키텍처·Node 실행 파일과 터미널·셸·TTY 정보 |
+
+활성 HUD 플러그인이 하나이면 그 캐시의 동봉 메타데이터를 읽습니다. 여러 개이면
+임의로 고르지 않고 `ambiguous`를 표시합니다. 단독 스킬을 쓰거나 비교 대상을
+정확히 정하려면 `--bundle`을 지정합니다. 이 비교는 메타데이터 기준이며,
+아카이브 체크섬과 내부 패키지 버전은 설치 도구가 별도로 검증합니다.
+
+`bundle.comparison: downgrade`는 동봉 버전이 현재 HUD보다 오래됐다는 뜻입니다.
+플러그인·스킬을 먼저 갱신하세요. `doctor`는 파일 권한이나 셸 설정을 수정하지 않습니다.
+0.6.x 이하의 `doctor`에는 이 필드와 실제 실행 검사가 없으므로, 최신 설치 스킬의
+`install.py --status`로 버전을 먼저 비교할 수 있습니다.
 
 ### 세션 선택
 
@@ -370,6 +427,37 @@ codex-hud status --ascii --no-color --no-git --width 80
 도구는 최대 100개를 유지하며, 한도를 넘으면 가장 오래된 비실행 항목부터 제거합니다. 에이전트·스킬·플러그인은 각각 최근 40개, 계획은 최대 100개를 유지합니다. 도구 수는 이 추적 범위 안의 수입니다. 로그 정책·Codex 버전에 따라 실행 중 이벤트가 기록되지 않으면 해당 활동은 결과가 기록된 뒤 표시될 수 있습니다. 도구 이름·짧은 실행 대상·계획 단계·스킬 이름·플러그인 메타데이터는 출력되지만 프롬프트, 추론 본문, 도구 출력 전체, 스킬 문서 본문은 JSON 상태에 보관하지 않습니다.
 
 ## 문제 해결
+
+**macOS에서 `codex-hud: posix_spawnp failed.`가 나옵니다.**
+
+`node-pty` 1.1.0의 npm 배포 아카이브에는 macOS용 `spawn-helper`가 실행 비트
+없는 `0644`로 들어 있습니다. HUD 0.7.0은 npm 설치 후 이 helper의 실행 비트를
+복구합니다. 최신 플러그인·스킬을 받은 뒤 기존 HUD를 업데이트하세요.
+이전 `doctor`가 `inline.available: true`를 출력했어도 실제 PTY 시작이
+성공했다는 뜻은 아니었습니다. 0.7.0은 무해한 Node 프로세스로 시작·종료까지 검사합니다.
+
+`--ignore-scripts`로 설치했거나 나중에 권한이 바뀐 경우에는 0.7.0 `doctor`의
+`inline.helper`와 `repairCommand`를 확인합니다. 동봉 복구 도구는 설치된 HUD의
+패키지 폴더에서 다음과 같이 실행할 수 있습니다.
+
+```bash
+node /absolute/installed/my-codex-hud/src/repair-node-pty.js
+codex-hud doctor --json
+```
+
+복구 도구는 알려진 macOS helper의 실행 비트만 보완합니다. helper가 없거나
+권한·경로 오류가 계속되면 진단에 나온 경로와 Node 아키텍처를 기준으로 재설치 또는
+`node-pty` 재빌드를 확인합니다. 진단만으로 특정 터미널의 화면 동작까지 확인한
+것으로 보지는 않습니다.
+
+**iTerm이나 cmux에서 자동 실행 결과가 다릅니다.**
+
+각 터미널에서 `type -a codex codex-hud`, `codex-hud doctor --json`과
+`[[ -t 0 && -t 1 ]]`을 비교합니다. 함수가 없으면 해당 설치의 `shell.sh`를
+읽습니다. 함수가 있어도 다른 실행 파일을 선택하거나 PTY가 실패할 수 있으므로
+`hud.command`, `nodeExecutable`, `inline.probe`, `inline.helper`를 확인하세요.
+`terminal`에는 `TERM_PROGRAM`, 셸, `ZDOTDIR`, TTY 상태가 기록됩니다.
+일시적으로 HUD를 거치지 않고 실행하려면 `command codex`를 사용합니다.
 
 **휠을 올리면 이전 명령이 입력되고 출력 기록이 스크롤되지 않습니다.**
 
@@ -440,6 +528,7 @@ npm pack
 ```text
 bin/codex-hud.js     실행 진입점
 src/cli.js          명령과 옵션
+src/installation.js 설치 상태·동봉 버전·플러그인 진단
 src/watch.js        갱신 루프와 터미널 복원
 src/sessions.js     메인 세션 탐색
 src/transcript.js   JSONL 증분 읽기
@@ -450,6 +539,7 @@ src/render.js       HUD 표시
 src/terminal.js     문자 폭·제어 문자 처리
 src/inline.js       한 터미널 실행·입력·리사이즈·복원
 src/pty.js          Codex PTY와 실행 환경
+src/repair-node-pty.js macOS helper 권한 진단·명시적 복구
 src/codex-args.js   Codex 실행 옵션과 세션 선택 문맥
 src/screen.js       가상 터미널과 고정 HUD 화면 합성
 src/scrollback.js   Codex 출력의 실제 터미널 스크롤백 전달

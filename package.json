@@ -1,6 +1,6 @@
 {
   "name": "my-codex-hud",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A local terminal HUD for Codex CLI, inspired by claude-hud",
   "type": "module",
   "bin": {
@@ -21,6 +21,7 @@
     "NOTICE"
   ],
   "scripts": {
+    "postinstall": "node src/repair-node-pty.js",
     "test": "node --test",
     "check": "node scripts/check.mjs",
     "test:installer": "python3 -m unittest discover -s tests -p 'test_*installer.py' -v",

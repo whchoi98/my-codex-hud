@@ -10,6 +10,7 @@ import { findSession } from './sessions.js';
 import { renderHud, renderWaiting } from './render.js';
 import { sanitizeText } from './terminal.js';
 import { snapshot, watch, renderOptions } from './watch.js';
+import { installationDiagnostics } from './installation.js';
 
 const exec = promisify(execFile);
 const COMMANDS = ['watch', 'status', 'start', 'setup', 'demo', 'doctor'];
@@ -22,7 +23,7 @@ Usage:
   codex-hud status [--json]         One snapshot
   codex-hud demo [--json]           Offline preview
   codex-hud setup                   Print native status-line TOML
-  codex-hud doctor [--json]         Check Codex, inline PTY and optional tmux
+  codex-hud doctor [--json]         Check installation, bundle version, Codex and PTY
 
 Options:
   --tmux                   Use the tmux backend (start only)
@@ -36,6 +37,7 @@ Options:
   --width COLUMNS          Maximum display width
   --path-levels N          Show 1–3 project path components
   --config PATH            Read alternate HUD JSON preferences
+  --bundle PATH            Compare this skill's assets/package.json (doctor only)
   --ascii                  ASCII bars and status symbols
   --no-color               Disable colors (also respects NO_COLOR)
   --no-git                 Skip Git status
@@ -86,6 +88,7 @@ function parse(argv) {
       preset: { type: 'string', short: 'p' }, language: { type: 'string' },
       interval: { type: 'string' }, width: { type: 'string' }, 'path-levels': { type: 'string' },
       config: { type: 'string' }, ascii: { type: 'boolean' },
+      bundle: { type: 'string' },
       'no-color': { type: 'boolean' }, 'no-git': { type: 'boolean' },
       mouse: { type: 'boolean' }, 'no-mouse': { type: 'boolean' },
       json: { type: 'boolean' }, once: { type: 'boolean' }, since: { type: 'string' },
@@ -101,6 +104,8 @@ function parse(argv) {
   if (values.tmux && command !== 'start') throw new Error('--tmux is only supported by start');
   if (values.json && ['start', 'setup'].includes(command)) throw new Error(`--json is not supported by ${command}`);
   if (values.once && command === 'start') throw new Error('--once is not supported by start');
+  if (values.bundle !== undefined && command !== 'doctor') throw new Error('--bundle is only supported by doctor');
+  if (values.bundle === '') throw new Error('--bundle must be a nonempty metadata path');
   return { command, values, codexArgs };
 }
 
@@ -113,12 +118,12 @@ async function versionOf(executable, args) {
   }
 }
 
-async function inlineAvailability() {
+async function inlineAvailability(cwd) {
   try {
     const { ptyAvailable } = await import('./pty.js');
-    const result = await ptyAvailable();
+    const result = await ptyAvailable({ cwd });
     return {
-      available: result.available,
+      ...result,
       ...(result.error ? { error: sanitizeText(result.error.message ?? result.error) } : {}),
     };
   } catch (error) {
@@ -127,14 +132,30 @@ async function inlineAvailability() {
 }
 
 async function doctor(settings) {
-  const [codex, inline, tmux, sessions, selected] = await Promise.all([
+  const [codex, inline, tmux, sessions, selected, installation] = await Promise.all([
     versionOf('codex', ['--version']),
-    inlineAvailability(),
+    inlineAvailability(settings.cwd),
     versionOf('tmux', ['-V']),
     stat(join(settings.codexHome, 'sessions')).then(info => info.isDirectory()).catch(() => false),
     findSession(settings).catch(() => null),
+    installationDiagnostics({
+      packageRoot: fileURLToPath(new URL('..', import.meta.url)),
+      commandPath: process.argv[1] ?? fileURLToPath(new URL('../bin/codex-hud.js', import.meta.url)),
+      codexHome: settings.codexHome, bundlePath: settings.bundlePath,
+    }),
   ]);
-  return { node: process.version, codex, inline, tmux, codexHome: settings.codexHome, sessionsDirectory: sessions, matchingSession: selected };
+  return {
+    node: process.version, platform: process.platform, arch: process.arch,
+    nodeExecutable: process.execPath, codex, inline, tmux, codexHome: settings.codexHome,
+    sessionsDirectory: sessions, matchingSession: selected, ...installation,
+    terminal: {
+      program: sanitizeText(process.env.TERM_PROGRAM ?? '') || null,
+      term: sanitizeText(process.env.TERM ?? '') || null,
+      shell: sanitizeText(process.env.SHELL ?? '') || null,
+      zDotDir: sanitizeText(process.env.ZDOTDIR ?? '') || null,
+      stdinIsTTY: Boolean(process.stdin.isTTY), stdoutIsTTY: Boolean(process.stdout.isTTY),
+    },
+  };
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -167,6 +188,7 @@ export async function main(argv = process.argv.slice(2)) {
     configPath: values.config ? resolve(values.config) : undefined,
     color: preferences.color && process.env.NO_COLOR === undefined,
     follow: Boolean(values.follow), since: numberOption(values.since, 'since'),
+    ...(values.bundle ? { bundlePath: resolve(values.bundle) } : {}),
   };
   if (command === 'setup') {
     process.stdout.write(nativeStatusLine(settings.preset));
@@ -178,10 +200,29 @@ export async function main(argv = process.argv.slice(2)) {
     else {
       process.stdout.write([
         'Codex HUD diagnostics',
-        `Node: ${report.node}`,
+        `HUD: ${sanitizeText(report.hud.version) || 'unknown'} (${report.stages.hud})`,
+        `HUD command: ${sanitizeText(report.hud.command)}`,
+        `Install prefix: ${sanitizeText(report.hud.prefix) || 'not a prefix installation'}`,
+        `Install scope: ${report.hud.scope ?? 'unknown'}${report.hud.project ? ` (${sanitizeText(report.hud.project)})` : ''}`,
+        `Autostart: ${report.stages.autostart}; current shell activation: unknown`,
+        `Autostart language: ${report.hud.language ?? 'unknown'}`,
+        `Plugin registration: ${report.plugin.status}`,
+        `Bundled HUD: ${report.bundle.version ?? report.bundle.status} (${report.bundle.comparison})`,
+        ...(report.bundle.comparison === 'downgrade'
+          ? ['Bundle is older than this HUD; update the plugin/skill before installing.'] : []),
+        ...(report.bundle.status === 'ambiguous'
+          ? ['Multiple HUD plugins are enabled; use doctor --bundle /absolute/skill/assets/package.json.'] : []),
+        ...(report.bundle.error ? [`Bundle: ${sanitizeText(report.bundle.error)}`] : []),
+        ...report.hud.warnings.map(message => `Install warning: ${sanitizeText(message)}`),
+        `Node: ${report.node} (${report.platform}/${report.arch})`,
+        `Node executable: ${sanitizeText(report.nodeExecutable)}`,
         `Codex: ${report.codex ?? 'not found (needed for start)'}`,
         `Inline PTY: ${report.inline.available ? 'available (default start backend)'
           : `unavailable${report.inline.error ? `: ${report.inline.error}` : ''}`}`,
+        ...(report.inline.probe ? [`PTY probe: ${sanitizeText(report.inline.probe.status)}`] : []),
+        ...(report.inline.helper?.path ? [
+          `PTY helper: ${sanitizeText(report.inline.helper.path)} (${sanitizeText(report.inline.helper.status)}, mode ${sanitizeText(report.inline.helper.mode ?? 'unknown')})`,
+        ] : []),
         ...(report.inline.available ? [] : [
           'Inline start: use Linux/macOS/WSL with working node-pty; reinstall dependencies with native build tools, or use watch.',
         ]),
@@ -189,6 +230,9 @@ export async function main(argv = process.argv.slice(2)) {
         `Codex home: ${sanitizeText(report.codexHome)}`,
         `Sessions directory: ${report.sessionsDirectory ? 'found' : 'not created yet'}`,
         `Matching session: ${sanitizeText(report.matchingSession) || 'none; start Codex in this directory'}`,
+        `Terminal: ${report.terminal.program ?? 'unknown'} (${report.terminal.term ?? 'unknown'})`,
+        `Shell: ${report.terminal.shell ?? 'unknown'}; ZDOTDIR: ${report.terminal.zDotDir ?? 'unset'}`,
+        `TTY: stdin=${report.terminal.stdinIsTTY}, stdout=${report.terminal.stdoutIsTTY}`,
       ].join('\n') + '\n');
     }
     return;

@@ -120,6 +120,18 @@ Codex pane exits. Setup failure cleans up its new window/session; attach failure
 leaves the session running and reports a reattach command
 ([pane setup and cleanup](../../src/launch.js)).
 
+Doctor uses `ptyAvailable()` to load the native dependency and actually start
+a harmless Node process in a PTY. The spawn/exit probe has a two-second default
+deadline; failure terminates the child and releases its listeners. No Codex/model request
+or caller terminal-mode change is needed. `createPty()` adds executable/cwd/platform
+context to startup failures without including argv or prompts.
+
+On macOS, [repair-node-pty.js](../../src/repair-node-pty.js) inspects the helper
+selected by node-pty's native loader. Doctor reports its path/mode and missing
+execute bits without changing permissions. npm postinstall or explicit manual
+execution of that helper module repairs known dependency files; see
+[installation](installation.md).
+
 ### Code pointers
 
 These tests are available only in a source checkout; the npm package excludes them.
@@ -127,6 +139,8 @@ These tests are available only in a source checkout; the npm package excludes th
 - Layout, paging, and selection coverage: `tests/screen.test.js`, `tests/watch.test.js`.
 - Literal launch context and tmux pane ownership: `tests/pty.test.js`, `tests/launch.test.js`.
 - Signals, descendant cleanup, and stalled output: `tests/inline.test.js`.
+- Real probe failure/cleanup and macOS helper permissions: `tests/pty.test.js`,
+  `tests/repair-node-pty.test.js`, `tests/doctor.test.js`.
 
 ### Cross-references
 
@@ -254,6 +268,17 @@ Tmux 실행기는 프리셋의 패널 높이(7/5/2행)를 한 번 요청하고, 
 연결에 실패하면 세션을 실행 상태로 남기고 재연결 명령을 안내합니다
 ([패널 준비와 정리](../../src/launch.js)).
 
+Doctor는 `ptyAvailable()`로 네이티브 의존성을 불러온 뒤 무해한 Node 프로세스를
+PTY에서 실제로 실행합니다. 기본 2초 제한 시간의 probe가 실패하면 자식을 종료하고
+리스너를 정리합니다. Codex·모델 요청이나 호출한 터미널의 모드 변경은 필요하지
+않습니다. `createPty()`의 시작 오류에는 argv·프롬프트를 제외한 실행 파일·cwd·
+플랫폼 정보를 덧붙입니다.
+
+macOS의 [repair-node-pty.js](../../src/repair-node-pty.js)는 node-pty의 네이티브
+로더가 선택한 helper를 검사합니다. Doctor는 경로·모드와 실행 비트 누락을
+보고하며 권한을 바꾸지 않습니다. npm postinstall 또는 명시적인 수동 실행이
+알려진 의존성 파일을 복구합니다. [설치 참조](installation.md)를 참고하세요.
+
 ### 코드 위치
 
 아래 테스트는 소스 체크아웃에서만 볼 수 있으며 npm 패키지에는 포함되지 않습니다.
@@ -261,6 +286,8 @@ Tmux 실행기는 프리셋의 패널 높이(7/5/2행)를 한 번 요청하고, 
 - 레이아웃·페이징·선택 검증: `tests/screen.test.js`, `tests/watch.test.js`.
 - 인자를 그대로 유지하는 실행 문맥과 tmux 패널 소유 범위: `tests/pty.test.js`, `tests/launch.test.js`.
 - 시그널·자손 프로세스 정리·출력 정체: `tests/inline.test.js`.
+- 실제 probe 실패·정리와 macOS helper 권한: `tests/pty.test.js`,
+  `tests/repair-node-pty.test.js`, `tests/doctor.test.js`.
 
 ### 관련 문서
 

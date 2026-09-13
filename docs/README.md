@@ -13,6 +13,7 @@
 - [Release runbook](runbooks/release.md): versioning, validation, and packaging.
 - [Contributing](../CONTRIBUTING.md): documentation and Git preparation.
 - [GitHub installation verification](verification-github-install.md): public 0.5.2 downloads and 0.6.0 GitHub plugin/ZIP trials.
+- [0.7.0 verification](verification-0.7.0.md): update preservation, version guards and real PTY/helper checks.
 - Historical validation: [0.1.0](verification-0.1.0.md),
   [inline 0.2.0](verification.md), [installer](verification-plugin.md).
 
@@ -30,6 +31,7 @@ the time. They are not rewritten to claim validation of a newer release.
 - [릴리스 런북](runbooks/release.md): 버전·검증·패키징.
 - [기여 지침](../CONTRIBUTING.md): 문서와 Git 작업 준비.
 - [GitHub 설치 검증](verification-github-install.md): 공개 0.5.2 다운로드와 0.6.0 GitHub 플러그인·ZIP 검증.
+- [0.7.0 검증](verification-0.7.0.md): 업데이트 설정 보존, 버전 차단과 실제 PTY·helper 검사.
 - 과거 검증 기록: [0.1.0](verification-0.1.0.md),
   [inline 0.2.0](verification.md), [설치 도구](verification-plugin.md).
 

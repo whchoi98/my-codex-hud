@@ -377,3 +377,30 @@ for (const mode of ['unavailable', 'throws']) {
     assert.equal(stderr, '');
   });
 }
+
+test('doctor preserves PTY spawn/helper diagnostics and probes the requested working directory', async t => {
+  const settings = await isolatedCli(t, {
+    'pty.js': `export async function ptyAvailable(options = {}) {
+      return {
+        available: false, platform: 'darwin', arch: 'arm64', cwd: options.cwd ?? null,
+        probe: { status: 'helper-unavailable', timeoutMs: 2000 },
+        helper: { path: '/hud/node-pty/spawn-helper', status: 'not-executable', mode: '0664',
+          repairCommand: ['/node', '/hud/src/repair-node-pty.js'] },
+        error: 'Native helper cannot execute',
+      };
+    }`,
+  });
+  const project = join(settings.cwd, 'selected-project');
+  const emptyBin = join(settings.cwd, 'empty-bin');
+  await Promise.all([project, emptyBin].map(path => mkdir(path)));
+  settings.env = { PATH: emptyBin };
+  const report = JSON.parse((await run(['doctor', '--cwd', project, '--json'], settings)).stdout);
+  assert.equal(report.inline.available, false);
+  assert.equal(report.inline.cwd, project);
+  assert.equal(report.inline.probe.status, 'helper-unavailable');
+  assert.equal(report.inline.helper.mode, '0664');
+  assert.deepEqual(report.inline.helper.repairCommand, ['/node', '/hud/src/repair-node-pty.js']);
+  const text = (await run(['doctor', '--cwd', project], settings)).stdout;
+  assert.match(text, /helper-unavailable/);
+  assert.match(text, /\/hud\/node-pty\/spawn-helper/);
+});

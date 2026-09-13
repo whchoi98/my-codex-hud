@@ -47,13 +47,16 @@ defaults to `<project>/.codex-hud/bin/codex-hud`.
 
 ```bash
 "/absolute/prefix/bin/codex-hud" --version
-"/absolute/prefix/bin/codex-hud" doctor --json
+"/absolute/prefix/bin/codex-hud" doctor --json \
+  --bundle plugins/codex-hud/skills/codex-hud-install/assets/package.json
 ```
 
 Confirm the source and installed CLI report the intended version. If the
 installed command is missing or differs, the installed-version check remains
 incomplete; packaging does not update a separate installation. Check the doctor's
-`codex` and `inline.available` fields too. For user scope, check PATH discovery
+`codex`, `inline.available` and `inline.probe.status == "ok"` fields too. The
+installation check must exercise an actual PTY child, not only import node-pty.
+On macOS, verify `inline.helper.status` is `executable`. For user scope, check PATH discovery
 separately with `command -v codex-hud` in a fresh terminal. Project scope does not
 add HUD to PATH, and a bare command may resolve to another installation.
 
@@ -134,6 +137,12 @@ tests are absent from the npm payload; see the [installation reference](../refer
 Automated installer tests use stand-in executables from the checkout, not the
 ZIPs; they do not prove installation on a new platform or a real VS Code screen.
 Preserve that distinction when recording validation results.
+
+For installer changes, exercise an existing older user/project prefix through
+`--status` and `--update`. Confirm scope, custom path, language, autostart and startup
+files remain unchanged, and a newer installed version is refused before npm.
+The npm package must include `src/repair-node-pty.js` and its postinstall command.
+Record actual macOS validation separately from simulated file-permission tests.
 
 ### GitHub distribution
 
@@ -224,12 +233,16 @@ node bin/codex-hud.js --version
 
 ```bash
 "/absolute/prefix/bin/codex-hud" --version
-"/absolute/prefix/bin/codex-hud" doctor --json
+"/absolute/prefix/bin/codex-hud" doctor --json \
+  --bundle plugins/codex-hud/skills/codex-hud-install/assets/package.json
 ```
 
 소스와 설치된 CLI가 의도한 버전을 출력하는지 확인합니다. 설치된 명령이 없거나
 버전이 다르면 설치 버전 검증은 미완료입니다. 패키징은 별도로 설치된 HUD를
-갱신하지 않습니다. 진단의 `codex`와 `inline.available`도 확인합니다.
+갱신하지 않습니다. 진단의 `codex`, `inline.available`,
+`inline.probe.status == "ok"`도 확인합니다. node-pty를 불러오는 것만으로는
+통과시킬 수 없으며 실제 PTY 자식을 실행해야 합니다. macOS에서는
+`inline.helper.status`가 `executable`인지도 확인합니다.
 사용자 설치의 PATH 연결은 새 터미널에서 `command -v codex-hud`로 별도 확인합니다.
 프로젝트 설치는 HUD를 PATH에 추가하지 않으며, 절대 경로 없이 실행한 명령은
 다른 설치를 가리킬 수 있습니다.
@@ -308,6 +321,12 @@ PY
 테스트가 없으며, 자세한 구성은 [설치 구현 참조](../reference/installation.md)를 따릅니다.
 설치 자동 검증은 ZIP 대신 체크아웃의 대역 실행 파일을 사용하므로 새로운
 플랫폼의 실제 설치나 VS Code 화면을 검증한 결과로 기록하지 않습니다.
+
+설치기를 바꿨다면 기존 구버전의 사용자·프로젝트 prefix에 `--status`와 `--update`를
+적용해 범위·사용자 지정 경로·언어·자동 실행·시작 파일을 보존하는지 확인합니다.
+이미 설치된 버전이 더 새로우면 npm 실행 전에 거절해야 합니다. npm 패키지에는
+`src/repair-node-pty.js`와 postinstall 명령이 포함되어야 합니다.
+실제 macOS 검증과 모의 파일 권한 테스트는 구분해 기록합니다.
 
 ### GitHub 배포
 

@@ -25,6 +25,7 @@ the same session/state/rendering components.
 | Native scrollback and resize accounting | [scrollback.js](../src/scrollback.js) |
 | Launch arguments and optional tmux | [codex-args.js](../src/codex-args.js), [launch.js](../src/launch.js) |
 | Packaging and installation | [package-plugin.py](../scripts/package-plugin.py), [installer guide](../plugins/codex-hud/README.md) |
+| Installation/version diagnostics and native helper repair | [installation.js](../src/installation.js), [repair-node-pty.js](../src/repair-node-pty.js) |
 
 Inline polling uses `HudSource`; standalone `watch` maintains its own reader.
 Both feed the same state and rendering pipeline. Interactive output follows these
@@ -46,9 +47,18 @@ flowchart LR
 
 `status` and `watch` with redirected output, `--once`, or `--json` produce one snapshot.
 `demo` renders fixture data, `setup` prints TOML without editing configuration,
-and `doctor` reports dependency/session availability. Only inline `start` and
+and `doctor` reports the running HUD installation, plugin/bundle versions,
+terminal context and dependency/session availability. Its native check starts a
+harmless Node PTY child and waits for its exit with a two-second default timeout.
+Only inline `start` and
 `doctor` load the native PTY module. Preferences resolve from defaults, then the
 selected JSON file, then explicit CLI options; see [configuration](../README.md#환경-설정).
+
+Doctor reads `install-state.json` and the managed shell header without executing
+the shell file. Plugin discovery uses `codex plugin list --json` with the selected
+Codex home, then reads that enabled plugin's cached bundle metadata. Multiple
+enabled copies require an explicit `--bundle` for comparison. Autostart configuration
+is separate from activation in the parent shell, which remains unknown.
 
 ### Constraints
 
@@ -75,16 +85,20 @@ transfers in a bounded queue; exiting while frozen does not flush pending rows.
 with internal scrolling. Scrollback markers and resize accounting prevent HUD
 redraws and already-archived rows from being appended again.
 
-The [installation workflow](../plugins/codex-hud/README.md) has two steps.
+The [installation workflow](../plugins/codex-hud/README.md) distinguishes registration,
+runtime installation, and shell configuration.
 GitHub skill downloads or the repository's `.agents/plugins/marketplace.json`
 make the installation skill available; the catalogue points to
 `plugins/codex-hud` and is used by `codex plugin marketplace add`.
 Registering the plugin does not install the HUD runtime.
 `scripts/install-skill.py` inside the skill registers the complete bundle under
 the user's or project's `.agents/skills`; it does not install HUD.
-The skill's `scripts/install.py` verifies the bundled checksum/version, installs
-HUD into the selected prefix, then checks the installed CLI before writing shell
-integration.
+The skill's `scripts/install.py` verifies the bundled checksum/version and compares
+the selected runtime before npm can overwrite it. `--status` is read-only;
+`--update` preserves existing configuration and startup connections. After runtime
+and PTY checks, installation writes shell integration and managed state, then
+refreshes diagnostics. npm's macOS postinstall repairs known node-pty helper execute
+bits; doctor itself performs no permission changes.
 
 User scope keeps the existing user data prefix and selected startup files.
 Project scope defaults to `<project>/.codex-hud`, requires a prefix inside that
@@ -122,6 +136,7 @@ Codex HUD는 로컬 rollout JSONL 파일을 읽어 정규화한 세션 정보를
 | 실제 터미널 스크롤백·크기 변경 보정 | [scrollback.js](../src/scrollback.js) |
 | 실행 인자와 선택적 tmux | [codex-args.js](../src/codex-args.js), [launch.js](../src/launch.js) |
 | 패키징과 설치 | [package-plugin.py](../scripts/package-plugin.py), [설치 안내](../plugins/codex-hud/README.md) |
+| 설치·버전 진단과 네이티브 helper 복구 | [installation.js](../src/installation.js), [repair-node-pty.js](../src/repair-node-pty.js) |
 
 Inline은 `HudSource`로 갱신하고 별도 `watch`는 자체 리더를 유지합니다.
 두 방식은 같은 상태·렌더링 처리를 사용합니다. 대화형 출력의 주요 경로는
@@ -143,9 +158,17 @@ flowchart LR
 
 `status`와 출력을 리다이렉트하거나 `--once`·`--json`을 지정한 `watch`는 한 번만 출력합니다.
 `demo`는 예시 데이터를 표시하고, `setup`은 설정 파일을 수정하지 않고 TOML을
-출력하며, `doctor`는 의존성과 세션 가용성을 보고합니다. 네이티브 PTY 모듈은
+출력하며, `doctor`는 실행 중인 HUD 설치 정보, 플러그인·동봉 버전, 터미널 환경과
+의존성·세션 가용성을 보고합니다. 네이티브 검사는 무해한 Node PTY 자식을 실제로
+시작하고 기본 2초 안에 종료되는지 확인합니다. 네이티브 PTY 모듈은
 inline `start`와 `doctor`만 불러옵니다. 설정은 기본값, 선택한 JSON 파일,
 명시한 CLI 옵션 순서로 적용합니다. [환경 설정](../README.md#환경-설정)을 참고하세요.
+
+Doctor는 셸 파일을 실행하지 않고 `install-state.json`과 관리 헤더를 읽습니다.
+선택한 Codex 홈으로 `codex plugin list --json`을 실행한 뒤 활성 플러그인의
+캐시에서 동봉 메타데이터를 읽습니다. 여러 사본이 활성화되어 있으면 비교할
+`--bundle`을 명시해야 합니다. 자동 실행 설정과 부모 셸의 활성화 상태를
+구분하며, 후자는 확인할 수 없어 미확인으로 둡니다.
 
 ### 유지 조건
 
@@ -173,15 +196,19 @@ Inline은 Codex의 `--no-alt-screen`을 한 번 추가해 가상 일반 버퍼�
 `--mouse`는 대체 화면에서 HUD를 고정한 내부 스크롤을 유지합니다.
 표식과 크기 변경 보정으로 HUD 갱신이나 이미 기록된 행을 다시 추가하지 않습니다.
 
-[설치 흐름](../plugins/codex-hud/README.md)은 두 단계입니다. GitHub에서 스킬을
+[설치 흐름](../plugins/codex-hud/README.md)은 등록, 실행 파일 설치, 셸 설정을
+구분합니다. GitHub에서 스킬을
 다운로드하거나 저장소의 `.agents/plugins/marketplace.json`으로 설치 스킬을
 등록합니다. 이 목록은 `plugins/codex-hud`를 가리키며
 `codex plugin marketplace add`가 사용합니다. 플러그인 등록만으로 HUD 실행
 프로그램을 설치하지 않습니다. 스킬 내부의
 `scripts/install-skill.py`는 사용자 또는 프로젝트의 `.agents/skills`에
 전체 스킬을 등록하며 HUD를 설치하지 않습니다. 스킬의 `scripts/install.py`는
-동봉 패키지의 체크섬·버전을 확인하고 선택한 prefix에 HUD를 설치한 뒤,
-설치된 CLI를 검사하고 셸 연결 파일을 씁니다.
+동봉 패키지의 체크섬·버전과 기존 실행 파일의 버전을 npm 실행 전에 비교합니다.
+`--status`는 읽기 전용이며 `--update`는 기존 설정과 시작 파일 연결을 보존합니다.
+실행 파일·PTY 검증 후 셸 연결과 관리 상태를 기록하고 진단을 다시 읽습니다.
+macOS npm postinstall은 알려진 node-pty helper의 실행 비트를 복구하며,
+doctor 자체는 권한을 바꾸지 않습니다.
 
 사용자 범위는 기존 사용자 데이터 경로와 선택한 셸 시작 파일을 사용합니다.
 프로젝트 범위의 기본 경로는 `<프로젝트>/.codex-hud`이며, prefix는 해당 프로젝트

@@ -3,6 +3,7 @@ import { access, stat } from 'node:fs/promises';
 import { delimiter, isAbsolute, resolve } from 'node:path';
 import { codexLaunchContext } from './codex-args.js';
 import { defaults } from './config.js';
+import { inspectNodePtyHelper } from './repair-node-pty.js';
 
 const terminalName = 'xterm-256color';
 const defaultPath = '/usr/bin:/bin';
@@ -158,6 +159,47 @@ async function loadPty() {
   }
 }
 
+function ptyContext(executable, cwd) {
+  return { platform: process.platform, arch: process.arch, node: process.version, executable, cwd };
+}
+
+function nativeSpawnReason(cause) {
+  // Do not copy arbitrary exception text: wrappers may include argv/prompts.
+  const known = ['posix_spawnp failed.', 'forkpty(3) failed.',
+    'Could not set master fd to nonblocking.'];
+  const message = typeof cause?.message === 'string' ? cause.message : '';
+  const reason = known.find(value => message.startsWith(value));
+  if (reason) return reason;
+  const code = typeof cause?.code === 'string' && /^[A-Z][A-Z0-9_]{1,40}$/.test(cause.code)
+    ? ` (${cause.code})` : '';
+  return `Native PTY startup failed${code}.`;
+}
+
+function helperProblem(helper) {
+  if (!helper || ['executable', 'unresolved'].includes(helper.status)) return null;
+  if (helper.status === 'not-executable') {
+    const command = helper.repairCommand.map(part => `'${part.replaceAll("'", "'\\''")}'`).join(' ');
+    return `node-pty spawn-helper is not executable (mode ${helper.mode}): ${helper.path}. `
+      + `Run ${command} to repair its execute bits, including after an --ignore-scripts installation.`;
+  }
+  return `node-pty spawn-helper is ${helper.status}: ${helper.path}. `
+    + 'Reinstall codex-hud or run npm rebuild node-pty in its installation directory to restore the helper.';
+}
+
+function spawnFailure(cause, context) {
+  const { platform, arch, node, executable, cwd } = context;
+  const helperError = helperProblem(context.helper);
+  const error = new Error(`Cannot start inline PTY (${platform}/${arch}, Node ${node}, `
+    + `executable: ${executable}, cwd: ${cwd}): ${nativeSpawnReason(cause)} `
+    + (helperError ? `${helperError} ` : '')
+    + 'Run codex-hud doctor --json in the affected terminal. '
+    + 'Reinstall codex-hud for this platform and Node version, or run npm rebuild node-pty '
+    + 'in its installation directory. You can also use codex-hud watch.', { cause });
+  error.code = 'ERR_PTY_SPAWN';
+  error.diagnostics = context;
+  return error;
+}
+
 /**
  * Spawn an executable with literal argv and return node-pty's native IPty.
  * Dimensions are positive POSIX winsize integers (1–65535). args defaults to
@@ -177,17 +219,105 @@ export async function createPty({
   await checkDirectory(cwd);
   const executable = await findExecutable(file, childEnv, cwd);
   const pty = await loadPty();
-  return pty.spawn(executable, childArgs, {
-    cwd, env: childEnv, cols, rows, name: terminalName, encoding: 'utf8',
+  const context = ptyContext(executable, cwd);
+  const helper = await inspectNodePtyHelper();
+  if (helper) context.helper = helper;
+  const helperError = helperProblem(helper);
+  if (helperError) throw spawnFailure(new Error(helperError), context);
+  try {
+    return pty.spawn(executable, childArgs, {
+      cwd, env: childEnv, cols, rows, name: terminalName, encoding: 'utf8',
+    });
+  } catch (cause) {
+    throw spawnFailure(cause, context);
+  }
+}
+
+function probePty(pty, { executable, cwd }, timeoutMs) {
+  return new Promise(resolveProbe => {
+    let child;
+    let exited = false;
+    let settled = false;
+    const subscriptions = [];
+    const dispose = callback => { try { callback(); } catch { /* Continue releasing owned resources. */ } };
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (child && !exited) {
+        dispose(() => child.kill('SIGKILL'));
+        // node-pty's POSIX destroy closes the PTY stream even if no exit event
+        // arrives. A normal exit already closes it in UnixTerminal.onexit.
+        dispose(() => child.destroy?.());
+      }
+      for (const unsubscribe of subscriptions) dispose(unsubscribe);
+      resolveProbe(result);
+    };
+    const subscribe = disposable => {
+      if (settled) dispose(() => disposable.dispose());
+      else subscriptions.push(() => disposable.dispose());
+    };
+    const timer = setTimeout(() => finish({ status: 'timeout' }), timeoutMs);
+    try {
+      child = pty.spawn(executable, ['--eval',
+        'process.exit(process.stdin.isTTY && process.stdout.isTTY && process.stderr.isTTY ? 0 : 1)'], {
+        cwd, cols: 80, rows: 24, name: terminalName, encoding: 'utf8',
+        // No shell, PATH lookup, NODE_OPTIONS preload, or Codex invocation.
+        env: { PATH: defaultPath, TERM: terminalName },
+      });
+      if (typeof child.on === 'function' && typeof child.removeListener === 'function') {
+        const onError = cause => {
+          // UnixTerminal also ignores transient reads and EIO when the last
+          // child closes the slave. Only onExit can decide whether it worked.
+          if (cause?.code === 'EAGAIN' || cause?.code === 'EIO') return;
+          finish({ status: 'spawn-failed', cause });
+        };
+        child.on('error', onError);
+        subscriptions.push(() => child.removeListener('error', onError));
+      }
+      subscribe(child.onData(() => {})); // Drain without retaining or printing output.
+      subscribe(child.onExit(({ exitCode, signal = 0 }) => {
+        exited = true;
+        finish({ status: exitCode === 0 && signal === 0 ? 'ok' : 'exit-failed', exitCode, signal });
+      }));
+      if (!settled) child.resume();
+    } catch (cause) {
+      finish({ status: 'spawn-failed', cause });
+    }
   });
 }
 
-/** Check native dependency loadability for doctor, without spawning any child. */
-export async function ptyAvailable() {
+/**
+ * Check inline startup for doctor using a harmless, bounded Node PTY child.
+ * Returns JSON-safe context and probe status; never launches Codex or modifies
+ * the terminal. timeoutMs bounds the spawn/exit probe (default two seconds).
+ */
+export async function ptyAvailable({ cwd = process.cwd(), timeoutMs = 2000 } = {}) {
+  const context = ptyContext(process.execPath, cwd);
+  let stage = process.platform === 'win32' ? 'unsupported' : 'load-failed';
   try {
-    await loadPty();
-    return { available: true };
+    requirePosix();
+    integerOption(timeoutMs, 'timeoutMs', 1, 10_000);
+    await checkDirectory(cwd);
+    const pty = await loadPty();
+    const helper = await inspectNodePtyHelper();
+    if (helper) context.helper = helper;
+    const helperError = helperProblem(helper);
+    if (helperError) {
+      return { available: false, ...context, probe: { status: 'helper-unavailable', timeoutMs },
+        error: spawnFailure(new Error(helperError), context).message };
+    }
+    stage = 'spawn-failed';
+    const { cause, ...probe } = await probePty(pty, context, timeoutMs);
+    if (probe.status === 'ok') return { available: true, ...context, probe: { ...probe, timeoutMs } };
+    const error = probe.status === 'spawn-failed' ? spawnFailure(cause, context).message
+      : `Inline PTY probe ${probe.status === 'timeout' ? `timed out after ${timeoutMs} ms`
+        : `exited unsuccessfully (exitCode: ${probe.exitCode}, signal: ${probe.signal})`}. `
+        + `Executable: ${context.executable}; cwd: ${cwd}; ${context.platform}/${context.arch}. `
+        + 'Run codex-hud doctor --json in the affected terminal. '
+        + 'Reinstall codex-hud or rebuild node-pty in its installation directory; codex-hud watch is also available.';
+    return { available: false, ...context, probe: { ...probe, timeoutMs }, error };
   } catch (error) {
-    return { available: false, error: error.message };
+    return { available: false, ...context, probe: { status: stage, timeoutMs }, error: error.message };
   }
 }

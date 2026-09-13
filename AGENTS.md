@@ -12,6 +12,8 @@ Codex CLI의 로컬 rollout JSONL을 읽어 터미널 HUD를 표시하는 Node.j
 - inline 터미널 처리는 `src/inline.js`, `src/screen.js`, `src/pty.js`에 있다.
 - 기본 inline은 일반 화면에서 드래그·휠 스크롤을 제공하고 `src/scrollback.js`가 Codex 출력만 실제 터미널 기록에 전달한다. HUD 갱신을 기록에 섞거나 휠을 명령 이력 방향키로 바꾸지 않는다.
 - 설치 스킬 등록은 `plugins/codex-hud/skills/codex-hud-install/scripts/install-skill.py`, HUD 설치는 같은 경로의 `install.py`가 맡는다. 프로젝트 범위는 사용자 셸 시작 파일과 PATH를 변경하지 않으며 자동 실행에 디렉터리 경계를 적용한다.
+- `install.py --status`는 읽기 전용이며 `--update`는 기존 prefix·범위·언어·자동 실행과 시작 파일 연결을 보존한다. npm 실행 전 실제 설치 버전을 비교하고, 알 수 없는 버전이나 승인하지 않은 다운그레이드는 차단한다.
+- 설치 상태 진단은 `src/installation.js`, macOS helper 권한 복구는 `src/repair-node-pty.js`가 맡는다. Doctor는 권한을 변경하지 않고 실제 PTY 시작·종료를 검증한다. 부모 셸의 자동 실행 활성화는 설정 여부와 구분한다.
 - GitHub 마켓플레이스 목록은 `.agents/plugins/marketplace.json`이며 `plugins/codex-hud`를 가리킨다. 로컬 등록 성공과 GitHub에 공개된 ref의 설치 성공을 구분해 기록한다.
 - 문서 목차는 `docs/README.md`, 기여·Git 준비 절차는 `CONTRIBUTING.md`, 릴리스 절차는 `docs/runbooks/release.md`를 따른다.
 - 설치·등록 도구의 소유 파일, 백업과 실패 경계는 `docs/reference/installation.md`를 따른다. 배포 문서의 링크는 npm 패키지에도 존재하는 파일을 가리켜야 한다.
@@ -45,3 +47,4 @@ Codex CLI의 로컬 rollout JSONL을 읽어 터미널 HUD를 표시하는 Node.j
 - `npm test`, `npm run check`, `npm run test:installer`를 실행하고 결과를 확인한다.
 - 소스와 설치된 `codex-hud --version`, 잠금 파일, 플러그인 메타데이터와 동봉된 npm 아카이브의 버전이 일치하는지 확인한다.
 - 동봉된 npm 아카이브의 체크섬과 `CHANGELOG.md` 포함 여부를 확인한다.
+- 설치 완료 검사에는 `inline.available`뿐 아니라 `inline.probe.status`가 `ok`인지 확인한다.

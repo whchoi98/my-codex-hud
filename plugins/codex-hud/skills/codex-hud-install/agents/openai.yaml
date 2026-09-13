@@ -1,4 +1,4 @@
 interface:
-  display_name: "Codex HUD 설치"
-  short_description: "사용자 전체 또는 현재 프로젝트에 HUD 설치, 자동 실행 및 진단"
-  default_prompt: "$codex-hud-install 사용자 전체 또는 현재 프로젝트 중 적용 범위를 선택해 HUD를 설치해줘."
+  display_name: "Codex HUD 설치·업데이트"
+  short_description: "사용자·프로젝트별 HUD 상태 진단, 설정을 보존하는 업데이트와 설치"
+  default_prompt: "$codex-hud-install 기존 HUD 설치 상태와 동봉 버전을 비교해줘."
