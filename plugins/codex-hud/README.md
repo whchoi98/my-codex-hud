@@ -62,9 +62,9 @@ codex plugin marketplace upgrade codex-hud
 codex plugin add codex-hud@codex-hud
 ```
 
-**공개 상태 확인(2026-09-13):** GitHub `main`은 0.5.2이고 마켓플레이스 목록이
-아직 없습니다. GitHub 플러그인 명령은 이 목록이 공개된 ref에 반영된 후 사용할
-수 있습니다. 단독 스킬의 GitHub 다운로드와 공개본 HUD 설치는 확인했습니다.
+**GitHub 설치 확인(2026-09-13):** 공개 `main`에서 위 명령으로 마켓플레이스 등록과
+`codex-hud` 0.6.0 설치를 확인했습니다. 단독 스킬의 GitHub 다운로드와
+공개본 HUD 설치도 확인했습니다.
 `--scope project`와 `install-skill.py`는 0.6.0부터 제공합니다.
 
 이 목록이 들어 있는 로컬 체크아웃은 다음과 같이 등록할 수 있습니다.
@@ -77,7 +77,7 @@ codex plugin add codex-hud@codex-hud
 ### GitHub 소스를 받아 HUD 설치
 
 Python 3.9 이상, Node.js 20 이상, npm, Git과 PATH의 Codex CLI를 준비합니다.
-현재 공개 0.5.2에서도 사용할 수 있는 사용자 설치 예시입니다.
+사용자 범위 설치 예시입니다.
 
 ```bash
 git clone --depth 1 https://github.com/whchoi98/my-codex-hud.git

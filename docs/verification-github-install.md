@@ -7,6 +7,9 @@ Date: 2026-09-13
 <a id="english"></a>
 ## English
 
+The initial checks below describe the pre-publication snapshots. The follow-up
+records successful installation from GitHub after the catalogue was pushed.
+
 ### Scope and environment
 
 Checked the GitHub installation pattern used by `whchoi98/codex-project-init`
@@ -57,8 +60,28 @@ the catalogue and its referenced plugin to be present in the published ref.
 After publication, repeat the GitHub commands in [README](../README.md) and update
 its public-status note; this record describes the snapshots tested above.
 
+### After publication
+
+On 2026-09-13, commit `b6393153f09639eb30d90efa4dc8805367b57a3b` was pushed to
+`origin/main`. In a fresh temporary Codex profile, these commands all exited 0:
+
+```bash
+codex plugin marketplace add whchoi98/my-codex-hud --ref main --json
+codex plugin add codex-hud@codex-hud --json
+codex plugin list --json
+```
+
+The installed plugin was `codex-hud@codex-hud` version 0.6.0, enabled and installed
+from the GitHub marketplace. Its cached bundle and metadata matched the published
+checkout byte for byte; SHA-256 verification passed. The remote `main` SHA matched
+the pushed commit. The READMEs were then updated to describe the available GitHub
+installation route. The earlier 0.5.2 results remain as the pre-publication record.
+
 <a id="korean"></a>
 ## 한국어
+
+아래 최초 검사는 공개 전 소스를 대상으로 한 기록입니다. 후속 검증에는 목록을
+푸시한 뒤 GitHub에서 설치에 성공한 결과를 추가했습니다.
 
 ### 범위와 환경
 
@@ -109,3 +132,22 @@ VS Code GUI 수동 검증은 수행하지 않았습니다. GitHub 플러그인 �
 ref 안에 목록과 해당 플러그인이 함께 있어야 합니다. 공개 후 [README](../README.md)의
 GitHub 명령을 다시 검증하고 공개 상태 안내를 갱신합니다. 이 기록은 위에서
 확인한 시점의 소스와 설치 결과를 설명합니다.
+
+### 공개 후 검증
+
+2026-09-13에 `b6393153f09639eb30d90efa4dc8805367b57a3b` 커밋을
+`origin/main`에 푸시했습니다. 새 임시 Codex 프로필에서 다음 명령이 모두
+종료 코드 0으로 완료됐습니다.
+
+```bash
+codex plugin marketplace add whchoi98/my-codex-hud --ref main --json
+codex plugin add codex-hud@codex-hud --json
+codex plugin list --json
+```
+
+GitHub 마켓플레이스에서 `codex-hud@codex-hud` 0.6.0을 설치했고,
+설치·활성 상태를 확인했습니다. 캐시의 동봉 패키지와 메타데이터는 공개한
+체크아웃과 바이트 단위로 일치했으며 SHA-256 검증도 통과했습니다.
+원격 `main`의 SHA가 푸시한 커밋과 일치하는지도 확인했습니다.
+이후 두 README를 실제 사용 가능한 GitHub 설치 상태로 갱신했습니다.
+앞의 0.5.2 결과는 공개 전 기록으로 보존합니다.

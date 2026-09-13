@@ -65,9 +65,8 @@ codex plugin marketplace upgrade codex-hud
 codex plugin add codex-hud@codex-hud
 ```
 
-**공개 상태 확인(2026-09-13):** GitHub `main`은 아직 0.5.2이고 마켓플레이스
-목록이 없어 위 플러그인 명령은 이 변경이 GitHub에 반영된 뒤 사용할 수 있습니다.
-현재 공개본에서는 위의 단독 스킬 설치 또는 아래의 소스 설치를 사용할 수 있습니다.
+**GitHub 설치 확인(2026-09-13):** 공개 `main`에서 위 명령으로 마켓플레이스 등록과
+`codex-hud` 0.6.0 설치를 확인했습니다. 단독 스킬과 소스 설치도 사용할 수 있습니다.
 프로젝트 범위 설치는 0.6.0부터 지원합니다.
 실행 환경과 결과는 [GitHub 설치 검증](docs/verification-github-install.md)에 기록했습니다.
 
