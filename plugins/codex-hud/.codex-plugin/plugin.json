@@ -1,0 +1,23 @@
+{
+  "name": "codex-hud",
+  "version": "0.5.2",
+  "description": "Install the bundled Codex terminal HUD and configure optional shell autostart.",
+  "author": {
+    "name": "Codex HUD contributors"
+  },
+  "license": "MIT",
+  "keywords": ["codex", "hud", "terminal", "installer"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex HUD 설치",
+    "shortDescription": "HUD 설치, 셸 자동 실행 설정과 진단",
+    "longDescription": "동봉된 Codex HUD를 사용자 전용 경로에 설치하고, 요청하면 Bash 또는 Zsh에서 codex 실행 시 HUD가 함께 켜지도록 설정합니다.",
+    "developerName": "Codex HUD contributors",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "$codex-hud-install HUD를 설치하고 codex 실행 시 자동으로 켜지도록 설정해줘.",
+      "$codex-hud-install 설치된 HUD의 상태를 점검해줘."
+    ]
+  }
+}

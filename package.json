@@ -1,0 +1,47 @@
+{
+  "name": "my-codex-hud",
+  "version": "0.5.2",
+  "description": "A local terminal HUD for Codex CLI, inspired by claude-hud",
+  "type": "module",
+  "bin": {
+    "codex-hud": "./bin/codex-hud.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "examples/",
+    "docs/",
+    "scripts/",
+    "plugins/codex-hud/README.md",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "AGENTS.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node scripts/check.mjs",
+    "test:installer": "python3 -m unittest discover -s tests -p test_plugin_installer.py -v",
+    "package:plugin": "python3 scripts/package-plugin.py",
+    "demo": "node bin/codex-hud.js demo",
+    "start": "node bin/codex-hud.js start"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "codex",
+    "codex-cli",
+    "hud",
+    "statusline",
+    "terminal"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@xterm/addon-unicode11": "0.9.0",
+    "@xterm/headless": "6.0.0",
+    "node-pty": "1.1.0"
+  }
+}

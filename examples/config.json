@@ -1,0 +1,11 @@
+{
+  "preset": "full",
+  "language": "ko",
+  "interval": 1000,
+  "width": null,
+  "pathLevels": 1,
+  "color": true,
+  "ascii": false,
+  "git": true,
+  "mouse": false
+}

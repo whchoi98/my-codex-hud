@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex HUD 설치"
+  short_description: "Codex HUD 설치, 어디서나 실행, 셸 자동 시작 및 진단"
+  default_prompt: "$codex-hud-install HUD를 설치하고 codex 실행 시 자동으로 켜지도록 설정해줘."
