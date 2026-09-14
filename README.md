@@ -8,6 +8,10 @@
 
 **VS Code 통합 터미널 하나에서 Codex 아래에 전체 HUD를 고정해 표시합니다.** `codex-hud start`의 기본 실행 방식이며 tmux는 필요하지 않습니다. Node.js 20 이상에서 동작하고, HUD 데이터는 로컬 Codex 세션 기록에서 읽습니다.
 
+![Codex CLI 하단에 표시된 Codex HUD 실행 화면](my-codex-hud.png)
+
+실제 터미널에서 Codex CLI 아래에 HUD가 표시된 화면입니다.
+
 ```text
 gpt-5 high · 승인 auto-review (on-request) · my-project [Git feat/codex-hud* 변경 3 미추적 1 ↑2] · 작업 중
 컨텍스트 [████░░░░░░] 42% · 108.5k/258.4k · 압축 1
