@@ -1,6 +1,6 @@
 # Contributing
 
-<a href="#english">English</a> · <a href="#korean">한국어</a>
+[![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
 
 <a id="english"></a>
 ## English
@@ -21,6 +21,11 @@ Use focused tests while editing; choose the files that exercise the changed beha
 | Terminal input, lifecycle, and helper recovery | `node --test tests/screen.test.js tests/inline.test.js tests/pty.test.js tests/repair-node-pty.test.js tests/watch.test.js` |
 | tmux launch | `node --test tests/launch.test.js` |
 | Skill registration and HUD installation | `npm run test:installer` |
+
+For prose, links, badges, and screenshots, verify affected documents and packaged
+assets. Reuse valid runtime test/review results when code, dependencies, and test
+configuration are unchanged. Keep one test/review owner for the same scope;
+a commit or push alone does not require another full run.
 
 Run the full checks before preparing a release, and regenerate packages after
 the final source or documentation edit:
@@ -63,6 +68,11 @@ an upstream or publish as a side effect of documentation work.
 | 터미널 입력·수명 관리·helper 복구 | `node --test tests/screen.test.js tests/inline.test.js tests/pty.test.js tests/repair-node-pty.test.js tests/watch.test.js` |
 | tmux 실행 | `node --test tests/launch.test.js` |
 | 스킬 등록과 HUD 설치 | `npm run test:installer` |
+
+문장·링크·배지·스크린샷 변경은 관련 문서와 배포 자산을 확인합니다.
+코드·의존성·테스트 설정이 같으면 유효한 기존 런타임 검증·리뷰 결과를 재사용합니다.
+같은 범위의 테스트·리뷰는 한 작업 흐름에서 담당하며, 커밋·푸시만을 이유로
+전체 검증을 다시 실행하지 않습니다.
 
 릴리스 준비 전에는 전체 검증을 실행하고, 마지막 소스·문서 수정 후 패키지를 갱신합니다.
 

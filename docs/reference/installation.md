@@ -1,6 +1,6 @@
 # Installation and Packaging
 
-<a href="#english">English</a> · <a href="#korean">한국어</a>
+[![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
 
 <a id="english"></a>
 ## English
@@ -59,7 +59,8 @@ The first three paths below are relative to
   rejects a downgrade unless explicitly allowed and rejects unknown installed
   versions. Build metadata does not affect precedence. `--update` requires an
   existing runtime; it preserves scope/project/prefix/language/autostart and never
-  rewrites startup files. It rejects shell-setting flags. Same-precedence updates
+  rewrites startup files. Both `--status` and `--update` reject `--shell`,
+  `--rc-file`, `--language` and `--autostart`. Same-precedence updates
   return `unchanged`; repair can still reinstall the same version.
 - **Persistent configuration:** Successful shell setup writes
   `<prefix>/install-state.json` atomically with mode `0600`, schema version `1` and
@@ -109,6 +110,8 @@ The first three paths below are relative to
   not the separate installer scripts or shell template. ZIP roots are `codex-hud/`
   and `codex-hud-install/`; the release runbook compares their contents to source.
   The TGZ needs npm dependencies from the registry or a populated cache.
+  The root npm `files` list includes public documentation, the changelog, and
+  `my-codex-hud.png`; document images must remain present in the packed payload.
 
 ### Code pointers
 
@@ -190,7 +193,8 @@ GitHub 플러그인 탐색에는 저장소의 `.agents/plugins/marketplace.json`
   않은 다운그레이드와 확인할 수 없는 설치 버전을 거부합니다. 빌드 메타데이터는
   버전 우선순위에 반영하지 않습니다. `--update`는 기존 실행 파일을 요구하고
   범위·프로젝트·prefix·언어·자동 실행 설정을 보존하며 시작 파일을 다시 쓰지 않습니다.
-  셸 설정 변경 옵션은 거부합니다. 같은 우선순위의 버전은 `unchanged`로 끝나며,
+  `--status`와 `--update` 모두 `--shell`, `--rc-file`, `--language`, `--autostart`를
+  거부합니다. 같은 우선순위의 버전은 `unchanged`로 끝나며,
   복구에서는 같은 버전을 다시 설치할 수 있습니다.
 - **설정 저장:** 셸 설정을 마치면 `<prefix>/install-state.json`을 `0600` 권한으로
   원자적으로 기록합니다. 스키마 버전은 `1`, 소유자는 `codex-hud-install`이며,
@@ -236,6 +240,8 @@ GitHub 플러그인 탐색에는 저장소의 `.agents/plugins/marketplace.json`
   이름·버전을 검사하며 별도의 설치 스크립트나 셸 템플릿은 검사하지 않습니다.
   ZIP 루트는 `codex-hud/`와 `codex-hud-install/`이며, 릴리스 런북에서 내용을
   소스와 비교합니다. TGZ 설치에는 레지스트리나 채워진 캐시의 npm 의존성이 필요합니다.
+  루트 npm `files` 목록에는 공개 문서·변경 이력·`my-codex-hud.png`가 포함되며,
+  문서에서 사용하는 이미지는 패킹한 배포 파일에도 있어야 합니다.
 
 ### 코드 위치
 

@@ -1,5 +1,7 @@
 # Codex HUD 설치 플러그인
 
+![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)
+
 Codex에게 HUD 설치와 진단을 맡기는 `codex-hud-install` 스킬입니다.
 HUD npm 패키지를 포함하므로 원본 프로젝트 폴더 없이도 사용할 수 있습니다.
 플러그인을 등록하는 것만으로 HUD나 셸 설정이 변경되지는 않습니다.
@@ -308,7 +310,8 @@ python3 /absolute/skill/path/scripts/install.py --update --prefix /absolute/exis
 `--update`는 존재하는 실행 파일만 갱신하며, 사용자 지정 prefix·범위·프로젝트
 루트·언어·자동 실행 설정을 유지합니다. 사용자 셸 시작 파일은 다시 쓰지 않습니다.
 같은 버전이면 `unchanged`로 끝나며, 파일 손상 복구가 필요하면 별도로 복구합니다.
-업데이트에서는 `--shell`, `--rc-file`, `--language`, `--autostart`를 받지 않습니다.
+`--status`와 `--update` 모두 `--shell`, `--rc-file`, `--language`, `--autostart`를
+받지 않습니다.
 
 새 설치·업데이트는 `<prefix>/install-state.json`에 설정을 기록합니다.
 과거 설치에는 이 파일이 없을 수 있어 기존 `shell.sh`에서 정보를 복원합니다.

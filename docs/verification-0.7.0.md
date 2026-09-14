@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 
-<a href="#english">English</a> · <a href="#korean">한국어</a>
+[![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
 
 <a id="english"></a>
 ## English
@@ -80,6 +80,30 @@ Installation can leave npm or configuration files changed when a later check
 fails; errors distinguish failure after configuration writes from a rollback.
 Older installer copies do not gain the new downgrade guard automatically.
 
+### User confirmation (2026-09-14)
+
+Following the 0.7.0 release, the user confirmed that HUD operates normally on
+their Mac. This is a user-provided real-device confirmation that supplements
+the automated Linux checks recorded above.
+
+### README command checks (2026-09-14)
+
+The bilingual README update changed documentation and bundled assets, with no
+runtime, dependency or test edits. Existing release checks above retain their
+original scope. New coverage examples were checked on Linux with Node.js 20.20.1:
+
+| Command | Result |
+| --- | --- |
+| `npm test -- --experimental-test-coverage` | 326 passed, one failed: the short-PTY watch test reported `last agent was lost after resize`. |
+| `node --experimental-test-coverage --test --test-name-pattern='watch pages through' tests/watch.test.js` | The failing test passed in isolation; five unrelated tests were skipped by the name filter. |
+| `node --experimental-test-coverage --test tests/render.test.js` | 34 passed, with a coverage report for the selected rendering tests. |
+
+The full-suite failure occurred after the test resized its PTY and immediately
+sent page-down keys; the final viewport showed `HUD 37-41/45`. An isolated pass
+does not establish that the timing failure is fixed. The README documents the
+verified rendering-only coverage command and does not claim full-suite coverage
+success.
+
 <a id="korean"></a>
 ## 한국어
 
@@ -150,3 +174,26 @@ Zsh, `TERM_PROGRAM=ghostty` 환경에서 HUD 함수가 로드된 상태였습니
 셸의 자동 실행 활성화를 보장하지 않습니다. 후속 검사가 실패하면 npm 또는
 설정 파일이 이미 변경됐을 수 있으며, 설정 기록 후 실패를 롤백으로 보고하지
 않습니다. 과거 설치 스크립트 사본에는 다운그레이드 방지가 자동 적용되지 않습니다.
+
+### 사용자 후속 확인 (2026-09-14)
+
+0.7.0 배포 후 사용자가 맥에서 HUD가 정상 동작한다고 확인했습니다.
+사용자가 제공한 실기기 확인 결과이며, 위에 기록한 Linux 자동 검증을
+보완하는 근거로 추가합니다.
+
+### README 명령 확인 (2026-09-14)
+
+이중 언어 README 작업은 문서와 동봉 자산을 갱신했으며, 런타임·의존성·테스트는
+수정하지 않았습니다. 위 릴리스 검증의 원래 범위는 유지합니다.
+새 커버리지 예제는 Linux의 Node.js 20.20.1에서 확인했습니다.
+
+| 명령 | 결과 |
+| --- | --- |
+| `npm test -- --experimental-test-coverage` | 326개 통과, 1개 실패입니다. 짧은 PTY의 watch 테스트에서 `last agent was lost after resize`가 발생했습니다. |
+| `node --experimental-test-coverage --test --test-name-pattern='watch pages through' tests/watch.test.js` | 실패했던 테스트는 단독 실행에서 통과했으며, 무관한 테스트 5개는 이름 필터로 건너뛰었습니다. |
+| `node --experimental-test-coverage --test tests/render.test.js` | 34개가 통과하고 선택한 렌더링 테스트의 커버리지 보고서를 출력했습니다. |
+
+전체 실행에서는 테스트가 PTY 크기를 바꾼 직후 PageDown을 전달한 뒤 실패했으며,
+최종 뷰포트는 `HUD 37-41/45`였습니다. 단독 실행의 통과만으로 타이밍 문제가
+해결됐다고 판단하지 않습니다. README에는 확인된 렌더링 전용 커버리지 명령을
+안내하며, 전체 커버리지 실행이 통과했다고 표시하지 않습니다.

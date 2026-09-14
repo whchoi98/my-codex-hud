@@ -1,6 +1,6 @@
 # Release and Git Preparation
 
-<a href="#english">English</a> · <a href="#korean">한국어</a>
+[![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
 
 <a id="english"></a>
 ## English
@@ -71,7 +71,7 @@ Generated outputs:
 Do not edit these files by hand. The asset archive and metadata are tracked;
 `dist/` is ignored. The package script also copies the root MIT license into
 the plugin. Run this check from the source root to verify versions, checksum,
-and bundled documentation:
+and bundled documentation, including the README screenshot:
 
 ```bash
 python3 -B - <<'PY'
@@ -91,7 +91,7 @@ assert version == manifest["version"] == metadata["version"]
 with tarfile.open(archive, "r:gz") as package:
     documents = [Path(name) for name in (
         "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "AGENTS.md",
-        "plugins/codex-hud/README.md",
+        "plugins/codex-hud/README.md", "my-codex-hud.png",
     )] + sorted(Path("docs").rglob("*.md"))
     for path in documents:
         assert package.extractfile(f"package/{path}").read() == path.read_bytes(), path
@@ -256,7 +256,8 @@ node bin/codex-hud.js --version
 
 이 파일들은 직접 편집하지 않습니다. 자산 아카이브와 메타데이터는 Git에
 포함하며 `dist/`는 제외합니다. 패키징 스크립트는 루트 MIT 라이선스도
-플러그인에 복사합니다. 소스 루트에서 다음 검사로 버전·체크섬·동봉 문서를 확인합니다.
+플러그인에 복사합니다. 소스 루트에서 다음 검사로 버전·체크섬·동봉 문서와
+README 스크린샷을 확인합니다.
 
 ```bash
 python3 -B - <<'PY'
@@ -276,7 +277,7 @@ assert version == manifest["version"] == metadata["version"]
 with tarfile.open(archive, "r:gz") as package:
     documents = [Path(name) for name in (
         "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "AGENTS.md",
-        "plugins/codex-hud/README.md",
+        "plugins/codex-hud/README.md", "my-codex-hud.png",
     )] + sorted(Path("docs").rglob("*.md"))
     for path in documents:
         assert package.extractfile(f"package/{path}").read() == path.read_bytes(), path

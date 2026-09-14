@@ -1,6 +1,6 @@
 # Codex HUD Architecture
 
-<a href="#english">English</a> · <a href="#korean">한국어</a>
+[![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
 
 <a id="english"></a>
 ## English
@@ -52,7 +52,7 @@ terminal context and dependency/session availability. Its native check starts a
 harmless Node PTY child and waits for its exit with a two-second default timeout.
 Only inline `start` and
 `doctor` load the native PTY module. Preferences resolve from defaults, then the
-selected JSON file, then explicit CLI options; see [configuration](../README.md#환경-설정).
+selected JSON file, then explicit CLI options; see [configuration](../README.md#configuration).
 
 Doctor reads `install-state.json` and the managed shell header without executing
 the shell file. Plugin discovery uses `codex plugin list --json` with the selected
