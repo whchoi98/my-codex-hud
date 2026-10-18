@@ -1309,7 +1309,7 @@ else:
             with self.subTest(args=args):
                 record = self.terminal(args, exit_code=23)
                 self.assertEqual(record["program"], program)
-                self.assertEqual(record["cwd"], "/tmp")
+                self.assertEqual(record["cwd"], str(Path("/tmp").resolve()))
                 expected = ["start", "--language", "ko", "--", *args] if program == "hud" else args
                 self.assertEqual(record["args"], expected)
         self.assertEqual(self.terminal([], raw=True)["program"], "codex")
