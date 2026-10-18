@@ -330,20 +330,40 @@ test('a stalled physical terminal does not block signal handling or Codex termin
       catch { return false; }
     }, 'host output stalled the signal handler');
     await until(() => {
-      try { process.kill(pid, 0); return false; } catch (error) { return error.code === 'ESRCH'; }
+      try {
+        process.kill(pid, 0);
+        if (process.platform !== 'darwin') return false;
+        // Darwin can remain in kernel exit while an unread PTY drains. Apple's
+        // ps reports P_WEXIT as E and a dead, unreaped process as Z.
+        const state = execFileSync('ps', ['-o', 'stat=', '-p', String(pid)],
+          { encoding: 'utf8', timeout: 1000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+        if (!state.startsWith('Z') && !state.includes('E')) return false;
+        t.diagnostic(`Codex PID=${pid} entered kernel exit state ${state} while the PTY was paused`);
+        return true;
+      } catch (error) { return error.code === 'ESRCH'; }
     }, 'Codex remained alive while host output was stalled');
   } catch (error) {
-    try {
-      const status = execFileSync('ps',
-        ['-o', 'pid=,ppid=,pgid=,stat=,wchan=', '-p', `${f.child.pid},${pid}`],
-        { encoding: 'utf8', timeout: 1000 }).trim();
-      error.message += `\nPTY processes (pid, ppid, pgid, state, wait channel):\n${status}`;
-    } catch { /* Keep the original failure if process inspection is unavailable. */ }
+    t.diagnostic(`Stalled PTY: wrapper PID=${f.child.pid}, Codex PID=${pid}`);
+    for (const fields of ['pid=,ppid=,pgid=,stat=,wchan=', 'pid=,ppid=,pgid=,stat=']) {
+      try {
+        const status = execFileSync('ps', ['-o', fields, '-p', `${f.child.pid},${pid}`],
+          { encoding: 'utf8', timeout: 1000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+        t.diagnostic(`PTY processes (${fields}):\n${status || '(no processes)'}`);
+        break;
+      } catch (inspectionError) {
+        t.diagnostic(`ps (${fields}) failed: ${inspectionError.message}`);
+        t.diagnostic(`ps stdout: ${String(inspectionError.stdout ?? '').trim() || '(empty)'}`);
+        t.diagnostic(`ps stderr: ${String(inspectionError.stderr ?? '').trim() || '(empty)'}`);
+      }
+    }
     throw error;
   } finally {
     f.child.resume();
   }
-  await f.exited;
+  assert.equal((await f.exited).exitCode, 143);
   await f.flush();
+  await until(() => {
+    try { process.kill(pid, 0); return false; } catch (error) { return error.code === 'ESRCH'; }
+  }, 'Codex was not reaped after host output resumed');
   assert.match(f.output(), /RESTORED \{"raw":false/);
 });
