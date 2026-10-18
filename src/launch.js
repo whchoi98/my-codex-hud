@@ -147,7 +147,8 @@ function attach(file, sessionId, options) {
  * The HUD follows the last Codex -C/--cd before --, resolved against cwd.
  * The main pane stays at the original cwd so Codex applies relative paths once.
  * session pins only the HUD; callers supply Codex resume/fork arguments.
- * New launches use --since (epoch milliseconds). Resume/fork cannot use a
+ * New and --worktree launches use --since (epoch milliseconds); --worktree
+ * also enables registered sibling worktree roots. Other resume/fork runs cannot use a
  * creation cutoff, so same-cwd selection is not guaranteed without session.
  * Use an explicit session for resume/fork with --cd: metadata may retain its old cwd.
  * Resolved HUD preferences and an explicit configPath are forwarded to watch.
@@ -202,7 +203,7 @@ export async function launch({
     if (!session) throw new TypeError('session must be a nonempty rollout path or UUID.');
   }
   await checkPaths({ cwd, codexHome, cliPath });
-  const { hudCwd, continuing } = codexLaunchContext(cwd, codexArgs);
+  const { hudCwd, continuing, worktree } = codexLaunchContext(cwd, codexArgs);
 
   const childEnv = { ...env, CODEX_HOME: codexHome, PATH: env.PATH ?? '/usr/bin:/bin' };
   if (session == null) delete childEnv.CODEX_THREAD_ID;
@@ -238,8 +239,9 @@ export async function launch({
   if (!git) hudArgs.push('--no-git');
   if (follow) hudArgs.push('--follow');
   if (configPath != null) hudArgs.push('--config', configPath);
+  if (session == null && worktree) hudArgs.push('--worktrees');
   if (session != null) hudArgs.push('--session', session);
-  else if (!continuing) hudArgs.push('--since', String(Date.now()));
+  else if (!continuing || worktree) hudArgs.push('--since', String(Date.now()));
   else {
     stderr.write('codex-hud: resume/fork selection is not guaranteed when multiple sessions share '
       + 'the same cwd. Use --session <UUID or rollout path> to pin the HUD.\n');

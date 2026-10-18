@@ -7,8 +7,11 @@
 
 ### Prerequisites
 
-Work from the source checkout with Node.js 20+, npm, Python 3.9+, and native PTY
+Work from the source checkout with Node.js 22+, npm, Python 3.9+, and native PTY
 dependencies available. Read [AGENTS.md](../../AGENTS.md).
+Use Node.js 24 from `.nvmrc` for development and also validate Node.js 22.
+The CI matrix covers Linux/macOS and both Node versions; record local checks
+separately from hosted runs.
 
 ### Documentation and versioning
 
@@ -90,7 +93,7 @@ assert version == lock["version"] == lock["packages"][""]["version"]
 assert version == manifest["version"] == metadata["version"]
 with tarfile.open(archive, "r:gz") as package:
     documents = [Path(name) for name in (
-        "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "AGENTS.md",
+        ".nvmrc", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "AGENTS.md",
         "plugins/codex-hud/README.md", "my-codex-hud.png",
     )] + sorted(Path("docs").rglob("*.md"))
     for path in documents:
@@ -195,8 +198,11 @@ do not terminate a user's active Codex session as part of packaging.
 
 ### 준비 사항
 
-Node.js 20 이상, npm, Python 3.9 이상, 네이티브 PTY 의존성이 준비된 소스
+Node.js 22 이상, npm, Python 3.9 이상, 네이티브 PTY 의존성이 준비된 소스
 체크아웃에서 작업합니다. [AGENTS.md](../../AGENTS.md)를 읽습니다.
+개발에는 `.nvmrc`의 Node.js 24를 사용하고 Node.js 22도 검증합니다.
+CI는 Linux·macOS와 두 Node 버전을 대상으로 하며, 로컬 검사와 호스팅된
+실행 결과를 구분해 기록합니다.
 
 ### 문서와 버전
 

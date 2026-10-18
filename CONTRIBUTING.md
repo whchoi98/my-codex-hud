@@ -11,6 +11,11 @@ Work from a source checkout: the npm payload includes documentation but excludes
 tests and the plugin's installer scripts. Follow [onboarding](docs/onboarding.md)
 for prerequisites and run `npm ci` before local development.
 
+Use Node.js 24 from `.nvmrc`; Node.js 22 remains supported. The CI workflow runs
+Node 22/24 on Linux and macOS with Python 3.11, including installer tests and
+read-only verification of the tracked npm bundle. Linux CI installs Zsh. A local
+pass does not establish a hosted CI run; record GitHub results only after publication.
+
 Use focused tests while editing; choose the files that exercise the changed behavior:
 
 | Area | Focused check |
@@ -57,6 +62,11 @@ an upstream or publish as a side effect of documentation work.
 세션 파싱, 렌더링을 수정하면 해당 동작을 검증합니다. npm 실행 패키지에는 문서가
 포함되지만 테스트와 플러그인의 설치 스크립트는 빠지므로 소스 체크아웃에서 작업합니다.
 준비 사항은 [온보딩](docs/onboarding.md)을 따르고 개발 전에 `npm ci`를 실행합니다.
+
+기본 개발 버전은 `.nvmrc`의 Node.js 24이며 Node.js 22도 지원합니다. CI는
+Linux·macOS의 Node 22/24와 Python 3.11에서 설치 테스트와 추적 중인 npm 묶음의
+읽기 전용 검사까지 실행합니다. Linux CI에는 Zsh를 설치합니다. 로컬 통과를
+호스팅된 CI 실행으로 기록하지 않으며, GitHub 결과는 공개 후 실제 실행을 확인합니다.
 
 수정 중에는 변경한 동작을 검증하는 파일을 선택해 실행합니다.
 

@@ -16,6 +16,7 @@
 - [Contributing](../CONTRIBUTING.md): documentation and Git preparation.
 - [GitHub installation verification](verification-github-install.md): public 0.5.2 downloads and 0.6.0 GitHub plugin/ZIP trials.
 - [0.7.0 verification](verification-0.7.0.md): Linux update/PTY checks, the user's Mac confirmation, and README coverage-command checks.
+- [0.8.0 verification](verification-0.8.0.md): worktree discovery, Node 22/24, installer preflight, PTY resize and CI configuration.
 - Historical validation: [0.1.0](verification-0.1.0.md),
   [inline 0.2.0](verification.md), [installer](verification-plugin.md).
 
@@ -36,6 +37,7 @@ the time. They are not rewritten to claim validation of a newer release.
 - [기여 지침](../CONTRIBUTING.md): 문서와 Git 작업 준비.
 - [GitHub 설치 검증](verification-github-install.md): 공개 0.5.2 다운로드와 0.6.0 GitHub 플러그인·ZIP 검증.
 - [0.7.0 검증](verification-0.7.0.md): Linux 업데이트·PTY 검사, Mac 사용자 확인과 README 커버리지 명령 검사.
+- [0.8.0 검증](verification-0.8.0.md): 작업 트리 탐색, Node 22/24, 설치 사전 검사, PTY 크기 변경과 CI 설정.
 - 과거 검증 기록: [0.1.0](verification-0.1.0.md),
   [inline 0.2.0](verification.md), [설치 도구](verification-plugin.md).
 

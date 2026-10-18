@@ -528,6 +528,38 @@ test('tmux option values preserve the last real cwd and the -- delimiter', async
   assert.equal(f.warnings(), '');
 });
 
+test('tmux forwards worktree discovery and a fresh cutoff to the HUD while preserving Codex argv', async t => {
+  const f = await fixture(t);
+  for (const codexArgs of [
+    ['--worktree'],
+    ['fork', '11111111-1111-7111-8111-111111111111', '--worktree'],
+  ]) {
+    const before = Date.now();
+    await launch({ ...f.options, codexArgs });
+    const calls = await f.calls();
+    const hud = calls.filter(call => call.tool === 'hud').at(-1);
+    const main = calls.filter(call => call.tool === 'codex' && !call.probe).at(-1);
+    assert.ok(hud.argv.includes('--worktrees'));
+    assert.ok(Number(flag(hud, '--since')) >= before);
+    assert.deepEqual(main.argv, codexArgs);
+    assert.equal(f.warnings(), '');
+  }
+});
+
+test('tmux does not enable worktree discovery for option payloads or an explicit session', async t => {
+  const f = await fixture(t);
+  for (const options of [
+    { codexArgs: ['--', '--worktree'] },
+    { codexArgs: ['--model', '--worktree'] },
+    { codexArgs: ['--worktree'], session: 'explicit.jsonl' },
+  ]) {
+    await launch({ ...f.options, ...options });
+    const hud = (await f.calls()).filter(call => call.tool === 'hud').at(-1);
+    assert.ok(!hud.argv.includes('--worktrees'));
+    if (options.session) assert.ok(!hud.argv.includes('--since'));
+  }
+});
+
 for (const subcommand of ['resume', 'fork']) {
   test(`${subcommand} after option values preserves Codex argv and omits --since with an ambiguity warning`, async (t) => {
     const f = await fixture(t);

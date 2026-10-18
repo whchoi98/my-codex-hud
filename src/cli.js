@@ -31,6 +31,7 @@ Options:
   --codex-home PATH         Codex data directory (default: $CODEX_HOME or ~/.codex)
   --session, -s PATH|UUID   Pin a rollout file or thread ID
   --follow                 Follow newer root sessions in the same directory
+  --worktrees              Also match linked worktree roots (watch/status/doctor)
   --preset, -p NAME         full | essential | minimal (default: full)
   --language LANG          en | ko (default: en)
   --interval MS            Refresh interval, 200–60000 (default: 1000)
@@ -57,6 +58,7 @@ restores terminal modes. Default start keeps output in native terminal scrollbac
 use the wheel to browse output and drag to select text for your terminal's copy command.
 --mouse keeps the alternate-screen HUD and captures wheel input instead.
 Inline start adds Codex's --no-alt-screen option so its output has scrollback.
+start -- --worktree follows a fresh session in a registered worktree of this repository.
 Shift+PageUp/Shift+PageDown browse the emulated normal-screen history.
 Alt+L switches the live HUD between English and Korean. Alt+M freezes the
 display for selection; press again to resume. With --mouse it also releases capture.
@@ -85,6 +87,7 @@ function parse(argv) {
       help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'v' },
       cwd: { type: 'string', short: 'C' }, 'codex-home': { type: 'string' },
       session: { type: 'string', short: 's' }, follow: { type: 'boolean' },
+      worktrees: { type: 'boolean' },
       preset: { type: 'string', short: 'p' }, language: { type: 'string' },
       interval: { type: 'string' }, width: { type: 'string' }, 'path-levels': { type: 'string' },
       config: { type: 'string' }, ascii: { type: 'boolean' },
@@ -102,6 +105,9 @@ function parse(argv) {
   if (positionals.length > 1) throw new Error('Unexpected argument. Put Codex arguments after start --.');
   if (codexArgs.length && command !== 'start') throw new Error('Arguments after -- are only accepted by start');
   if (values.tmux && command !== 'start') throw new Error('--tmux is only supported by start');
+  if (values.worktrees && !['watch', 'status', 'doctor'].includes(command)) {
+    throw new Error('--worktrees is only supported by watch, status, and doctor; use start -- --worktree.');
+  }
   if (values.json && ['start', 'setup'].includes(command)) throw new Error(`--json is not supported by ${command}`);
   if (values.once && command === 'start') throw new Error('--once is not supported by start');
   if (values.bundle !== undefined && command !== 'doctor') throw new Error('--bundle is only supported by doctor');
@@ -188,6 +194,7 @@ export async function main(argv = process.argv.slice(2)) {
     configPath: values.config ? resolve(values.config) : undefined,
     color: preferences.color && process.env.NO_COLOR === undefined,
     follow: Boolean(values.follow), since: numberOption(values.since, 'since'),
+    ...(values.worktrees ? { worktrees: true } : {}),
     ...(values.bundle ? { bundlePath: resolve(values.bundle) } : {}),
   };
   if (command === 'setup') {

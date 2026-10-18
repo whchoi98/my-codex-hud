@@ -86,7 +86,7 @@ GitHub 다운로드 도구는 기존 대상이 있으면 덮어쓰지 않습니�
 
 ### GitHub 소스를 받아 HUD 설치 (선택)
 
-Python 3.9 이상, Node.js 20 이상, npm, Git과 PATH의 Codex CLI를 준비합니다.
+Python 3.9 이상, Node.js 22 이상, npm, Git과 PATH의 Codex CLI를 준비합니다.
 사용자 범위 설치 예시입니다.
 
 ```bash
@@ -112,8 +112,9 @@ PATH에 연결합니다. 자동 실행은 아래의 범위·셸 옵션을 확인
 스킬 등록 위치는 Codex의 [스킬 탐색 경로](https://developers.openai.com/codex/skills/#where-to-save-skills)를 따릅니다.
 프로젝트 스킬을 등록해도 이미 등록한 사용자 스킬이나 플러그인은 제거하지 않습니다.
 
-HUD 설치 도구는 Node.js 20 이상, npm,
+HUD 설치 도구는 Node.js 22 이상, npm,
 Python 3.9 이상, Codex CLI가 필요하며 Linux·macOS·WSL을 대상으로 합니다.
+기본 개발 버전은 Node.js 24이며, 0.8.0부터 설치 사전 검사에서 Node.js 20·21을 거부합니다.
 npm 의존성을 내려받을 네트워크 또는 채워진 npm 캐시가 필요합니다.
 OS·CPU에 맞는 `node-pty` 사전 빌드가 없으면 C/C++ 컴파일러, make,
 Node 헤더도 필요합니다. 설치 도구는 네이티브 빌드 출력을 표시합니다.
@@ -134,11 +135,11 @@ Node 헤더도 필요합니다. 설치 도구는 네이티브 빌드 출력을 �
 
 ## 다른 환경으로 옮기기
 
-`codex-hud-plugin-0.7.0.zip`에는 `.codex-plugin/plugin.json`과 설치 스킬,
+`codex-hud-plugin-0.8.0.zip`에는 `.codex-plugin/plugin.json`과 설치 스킬,
 실행 패키지가 들어 있습니다. Codex 플러그인 가져오기 기능 또는 사용 중인
 로컬 마켓플레이스에 등록할 수 있습니다. 이 플러그인의 식별자는 `codex-hud`입니다.
 
-스킬만 사용하려면 `codex-hud-install-0.7.0.zip`을 풀고
+스킬만 사용하려면 `codex-hud-install-0.8.0.zip`을 풀고
 `codex-hud-install` 폴더 안에서 아래 중 원하는 범위를 선택합니다.
 미리 보려면 `--dry-run`을 추가합니다.
 

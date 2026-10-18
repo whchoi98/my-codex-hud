@@ -186,6 +186,40 @@ test('help and version work even if user preferences are invalid', async t => {
   assert.equal((await run(['--version'], settings)).stdout, `${pkg.version}\n`);
 });
 
+test('status and redirected watch opt into linked worktree sessions through the CLI', async t => {
+  const settings = await fixture(t);
+  const project = join(settings.cwd, 'repository');
+  const worktree = join(settings.cwd, 'linked-worktree');
+  const git = args => exec('git', [
+    '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false',
+    '-c', 'user.name=HUD tests', '-c', 'user.email=hud@example.invalid', ...args,
+  ]);
+  await git(['init', '--quiet', project]);
+  await git(['-C', project, 'commit', '--quiet', '--allow-empty', '-m', 'fixture']);
+  await git(['-C', project, 'worktree', 'add', '--quiet', '--detach', worktree]);
+  const sessions = join(settings.codexHome, 'sessions');
+  await mkdir(sessions);
+  await writeFile(join(sessions, 'worktree.jsonl'), JSON.stringify({
+    type: 'session_meta', payload: { id: 'worktree-session', cwd: worktree, source: 'cli' },
+  }) + '\n');
+  assert.equal(JSON.parse((await run(['status', '--json', '--no-git', '--cwd', project], settings)).stdout), null);
+  for (const command of ['status', 'watch']) {
+    const { stdout } = await run([command, '--json', '--no-git', '--cwd', project, '--worktrees'], settings);
+    assert.equal(JSON.parse(stdout).session.id, 'worktree-session');
+  }
+});
+
+test('worktree matching is restricted to session inspection commands', async t => {
+  const settings = await fixture(t);
+  for (const command of ['start', 'demo', 'setup']) {
+    await assert.rejects(run([command, '--worktrees'], settings), error => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /--worktrees.*only.*watch.*status.*doctor/);
+      return true;
+    });
+  }
+});
+
 test('start defaults to inline with the full HUD and no Codex arguments', async t => {
   const settings = await launchFixture(t);
   const { stdout, stderr } = await run(['start'], settings);

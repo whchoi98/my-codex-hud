@@ -65,7 +65,7 @@ elif sys.argv[1:2] == ['doctor']:
         inline['probe'] = 'ok'
     elif probe_mode:
         inline['probe'] = {'status': probe_mode}
-    print(json.dumps({'node': 'v20.20.1',
+    print(json.dumps({'node': os.environ.get('HUD_FIXTURE_NODE', 'v24.22.0'),
                       'codex': None if os.environ.get('HUD_FIXTURE_CODEX') == 'missing'
                                       or failure == 'codex' else 'codex-cli 0.153.4',
                       'inline': inline,
@@ -114,7 +114,7 @@ class InstallerTests(unittest.TestCase):
         self.bin = self.directory / "fixtures"
         self.bin.mkdir()
         for name, source in {
-            "node": HEADER + "import os; print(os.environ.get('HUD_FIXTURE_NODE', 'v20.20.1'))\n",
+            "node": HEADER + "import os; print(os.environ.get('HUD_FIXTURE_NODE', 'v24.22.0'))\n",
             "codex": CODEX, "npm": NPM,
         }.items():
             path = self.bin / name
@@ -1256,11 +1256,31 @@ else:
         self.assertIn("checksum", result.stderr)
         self.assertFalse(self.log.exists())
 
-    def test_unsupported_node_fails_before_writes(self):
-        result = self.invoke(env={**self.env, "HUD_FIXTURE_NODE": "v18.20.0"})
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Node.js 20+", result.stderr)
-        self.assertFalse(self.log.exists())
+    def test_unsupported_node_fails_before_npm_or_writes(self):
+        for version in ("v20.20.1", "v21.7.3", "v18.20.0"):
+            for args in ((), ("--dry-run",)):
+                with self.subTest(version=version, args=args):
+                    before = self.snapshot()
+                    result = self.invoke(
+                        "--autostart", *args, env={**self.env, "HUD_FIXTURE_NODE": version},
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Node.js 22+", result.stderr)
+                    self.assertFalse(self.log.exists())
+                    self.assertEqual(self.snapshot(), before)
+
+    def test_supported_node_dry_run_passes_without_npm_or_writes(self):
+        for version in ("v22.0.0", "v24.0.0"):
+            with self.subTest(version=version):
+                before = self.snapshot()
+                report = self.report(self.invoke(
+                    "--dry-run", "--autostart",
+                    env={**self.env, "HUD_FIXTURE_NODE": version},
+                ))
+                self.assertEqual(report["action"], "dry-run")
+                self.assertEqual(report["stage"], "preflight")
+                self.assertFalse(self.log.exists())
+                self.assertEqual(self.snapshot(), before)
 
     def test_offline_cache_options_are_forwarded_as_literal_arguments(self):
         cache = self.directory / "cache with spaces"

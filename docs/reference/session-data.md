@@ -31,6 +31,22 @@ reasoning, tool outputs, and skill bodies are not kept in that state.
   markers. An absolute metadata `cwd` must match the requested directory exactly
   after canonicalization. Newest file modification time wins; `since` filters
   session start time and rejects unknown start times.
+- **Worktrees:** `start -- --worktree` (including `fork <UUID> --worktree`)
+  enables `worktrees` and a fresh `since` cutoff for inline and tmux. Standalone
+  `watch`, `status`, and `doctor` expose `--worktrees`. In this mode,
+  [getLinkedWorktrees](../../src/git.js) reads Git's NUL-delimited worktree
+  registry with a 1.5-second timeout and 1 MiB output limit. It canonicalizes
+  existing roots and excludes any root containing the requested cwd. A candidate
+  must match the requested cwd exactly or one of those additional roots exactly;
+  arbitrary descendants and unrelated repositories remain excluded. Parent
+  `GIT_DIR`/`GIT_COMMON_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE` overrides are removed
+  for this lookup. Roots refresh on each search, including after Codex creates a
+  worktree. Git lookup failure adds no candidates, and `--no-git` controls only
+  status display. Before accepting a root, its canonical `--git-common-dir`
+  must match the requested repository; identities are cached only within that
+  search. This rejects stale registrations whose paths now contain another
+  repository. Child/internal-session exclusion and `since` still apply.
+  Concurrent sessions in the same repository may need an explicit path/UUID.
 - **Explicit sessions:** A non-UUID value is resolved relative to `cwd` and must
   name a regular file. UUID lookup also searches `archived_sessions` and matches
   metadata IDs case-insensitively. Both bypass automatic cwd/child/`since` filters;
@@ -138,6 +154,21 @@ reasoning, tool outputs, and skill bodies are not kept in that state.
   자식·내부 세션을 제외합니다. 메타데이터의 절대 경로 `cwd`는 정규화 후 요청한
   디렉터리와 정확히 일치해야 합니다. 파일 수정 시각이 가장 최근인 후보를 선택하며,
   `since`는 세션 시작 시각에 적용하고 시작 시각을 모르면 제외합니다.
+- **작업 트리:** `start -- --worktree`와 `fork <UUID> --worktree`는 inline·tmux에서
+  `worktrees`를 켜고 실행 시각을 `since`로 지정합니다. 별도 `watch`, `status`,
+  `doctor`에서는 `--worktrees`를 사용합니다. 이 모드의
+  [getLinkedWorktrees](../../src/git.js)는 1.5초·1 MiB 한도에서 Git의 NUL 구분
+  작업 트리 등록 목록을 읽습니다. 존재하는 루트를 정규화하고 요청한 cwd를 포함하는
+  루트는 추가 후보에서 제외합니다. 세션 cwd는 요청한 cwd 또는 추가 루트와 정확히
+  일치해야 하며, 임의의 하위 디렉터리나 다른 저장소는 허용하지 않습니다.
+  이 조회에서는 부모 환경의 `GIT_DIR`·`GIT_COMMON_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`
+  지정값을 제거합니다. Codex가 작업 트리를 만든 뒤에도 찾을 수 있도록 매번 등록
+  목록을 갱신합니다. Git 조회에 실패하면 후보를 추가하지 않으며, `--no-git`은 상태
+  표시만 제어합니다. 후보를 선택하기 전에 정규화한 `--git-common-dir`가 요청한
+  저장소와 같은지 확인하며, 이 정보는 해당 탐색 안에서만 재사용합니다. 다른
+  저장소가 재사용한 오래된 작업 트리 경로는 거부합니다.
+  자식·내부 세션 제외와 `since` 필터는 유지합니다.
+  같은 저장소의 동시 세션은 경로·UUID로 직접 지정해야 할 수 있습니다.
 - **명시한 세션:** UUID가 아닌 값은 `cwd` 기준으로 해석하며 일반 파일이어야 합니다.
   UUID는 `archived_sessions`도 검색하며 메타데이터 ID의 대소문자를 구분하지 않습니다.
   두 방식 모두 자동 선택의 cwd·자식·`since` 필터를 건너뜁니다. 명시한 대상을 찾지

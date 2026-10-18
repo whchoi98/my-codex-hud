@@ -1,6 +1,6 @@
 {
   "name": "codex-hud",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Inspect, install, and update the bundled Codex terminal HUD while preserving user/project scope and shell settings.",
   "author": {
     "name": "Codex HUD contributors"

@@ -18,7 +18,7 @@ the same session/state/rendering components.
 | Refresh and cached state | [watch.js](../src/watch.js), [hud-source.js](../src/hud-source.js) |
 | Session selection/read | [sessions.js](../src/sessions.js), [transcript.js](../src/transcript.js) |
 | State, activity and skill/plugin detection | [state.js](../src/state.js), [activity.js](../src/activity.js), [skills.js](../src/skills.js) |
-| Optional Git metadata | [git.js](../src/git.js) |
+| Git status and registered worktree roots | [git.js](../src/git.js) |
 | Presentation and cell widths | [render.js](../src/render.js), [terminal.js](../src/terminal.js), [viewport.js](../src/viewport.js) |
 | Inline PTY and compositing | [inline.js](../src/inline.js), [screen.js](../src/screen.js), [pty.js](../src/pty.js) |
 | Inline terminal output | [output.js](../src/output.js) |
@@ -68,6 +68,18 @@ outputs in normalized state. Rendering sanitizes terminal controls and clips to
 terminal cell widths. The `full` activity order is tools, loaded skills, plugins,
 agents, then plan. Skills occupy one clipped, comma-separated line. Only running
 agents are displayed; retained completed agents remain available in JSON state.
+
+By default, selection requires exact cwd. Codex `--worktree` launches enable
+registered sibling worktree roots and a fresh-session cutoff in both launchers.
+Standalone inspection opts in with `--worktrees`. Discovery reads
+`git worktree list --porcelain -z`, canonicalizes existing roots, and excludes
+the checkout containing the requested cwd from the additional candidates.
+It does not accept arbitrary descendants or unrelated repositories. Registrations
+refresh on each search, and each candidate's canonical Git common directory must
+match the requested repository, rejecting stale paths reused by another repository.
+Missing Git leaves exact-cwd selection available.
+Explicit session paths/UUIDs bypass automatic filters. Concurrent launches in the
+same repository can still require an explicit session.
 
 The inline launcher owns terminal mode restoration and child cleanup. Native
 text dragging is enabled by default; host mouse capture, including child requests,
@@ -129,7 +141,7 @@ Codex HUD는 로컬 rollout JSONL 파일을 읽어 정규화한 세션 정보를
 | 갱신과 상태 캐시 | [watch.js](../src/watch.js), [hud-source.js](../src/hud-source.js) |
 | 세션 선택·읽기 | [sessions.js](../src/sessions.js), [transcript.js](../src/transcript.js) |
 | 상태·활동·스킬/플러그인 감지 | [state.js](../src/state.js), [activity.js](../src/activity.js), [skills.js](../src/skills.js) |
-| 선택적 Git 정보 | [git.js](../src/git.js) |
+| Git 상태와 등록된 작업 트리 루트 | [git.js](../src/git.js) |
 | 표시와 문자 셀 너비 | [render.js](../src/render.js), [terminal.js](../src/terminal.js), [viewport.js](../src/viewport.js) |
 | Inline PTY와 화면 합성 | [inline.js](../src/inline.js), [screen.js](../src/screen.js), [pty.js](../src/pty.js) |
 | Inline 터미널 출력 | [output.js](../src/output.js) |
@@ -179,6 +191,17 @@ Doctor는 셸 파일을 실행하지 않고 `install-state.json`과 관리 헤�
 에이전트, 계획입니다. 스킬은 쉼표로 구분한 한 줄로 표시하고 너비를 넘으면
 자릅니다. 에이전트는 실행 중인 경우만 표시하며, 추적 범위 안의 완료된
 에이전트는 JSON 상태에 남습니다.
+
+기본 세션 선택은 cwd가 정확히 일치해야 합니다. Codex `--worktree` 실행에서는
+두 실행기 모두 같은 저장소에 등록된 다른 작업 트리의 루트를 추가로 허용하고,
+실행 이후 생성된 세션만 선택합니다. 별도 조회는 `--worktrees`로 켭니다.
+`git worktree list --porcelain -z`에서 읽은 경로 중 실제로 존재하는 루트를 정규화하며,
+요청한 cwd를 포함하는 체크아웃은 추가 후보에서 제외합니다. 임의의 하위 디렉터리나
+다른 저장소까지 허용하지 않습니다. 탐색할 때마다 등록 목록을 갱신하고 후보의
+실제 Git 공통 디렉터리가 요청한 저장소와 같은지 확인합니다. 다른 저장소가
+재사용한 오래된 작업 트리 경로는 거부합니다. Git을
+읽을 수 없으면 기존의 정확한 cwd 일치를 사용합니다. 명시한 경로·UUID는 자동
+필터보다 우선합니다. 같은 저장소에서 동시에 실행한 세션은 직접 지정해야 할 수 있습니다.
 
 Inline 실행기는 터미널 모드 복원과 자식 프로세스 정리를 담당합니다. 기본
 상태에서는 터미널의 드래그 선택을 허용하며, Codex가 요청한 마우스 모드도

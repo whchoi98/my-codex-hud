@@ -4,10 +4,11 @@ Codex CLI의 로컬 rollout JSONL을 읽어 터미널 HUD를 표시하는 Node.j
 
 ## 프로젝트와 문서
 
-- 개발 환경은 Node.js 20 이상, npm, Git이며 설치 검증·패키징에는 Python 3.9 이상이 필요하다.
+- 실행 환경은 Node.js 22 이상이며 기본 개발 버전은 `.nvmrc`의 Node.js 24이다. npm, Git과 설치 검증·패키징용 Python 3.9 이상이 필요하다.
 - 의존성은 `npm ci`로 설치한다. 별도 빌드 없이 `node bin/codex-hud.js`로 실행하며, 세션 없이 확인하려면 `node bin/codex-hud.js demo --language ko --no-color`를 사용한다.
 - CLI 진입점은 `bin/codex-hud.js`, 실행 로직은 `src/cli.js`이다.
 - 세션 선택·읽기는 `src/sessions.js`와 `src/transcript.js`, 상태 처리는 `src/state.js`와 `src/activity.js`, 표시는 `src/render.js`가 맡는다.
+- 일반 세션 선택은 정확한 cwd를 유지한다. Codex `--worktree` 실행과 명시한 `--worktrees` 조회만 Git에 등록된 같은 저장소의 다른 작업 트리 루트까지 허용한다. 자식 세션 제외, 시작 시각 필터와 명시적 세션 우선순위를 유지한다.
 - 스킬·플러그인 감지는 `src/skills.js`, 대화형 갱신은 `src/watch.js`와 inline용 `src/hud-source.js`가 맡는다.
 - inline 터미널 처리는 `src/inline.js`, `src/screen.js`, `src/pty.js`에 있다.
 - 기본 inline은 일반 화면에서 드래그·휠 스크롤을 제공하고 `src/scrollback.js`가 Codex 출력만 실제 터미널 기록에 전달한다. HUD 갱신을 기록에 섞거나 휠을 명령 이력 방향키로 바꾸지 않는다.
@@ -25,6 +26,7 @@ Codex CLI의 로컬 rollout JSONL을 읽어 터미널 HUD를 표시하는 Node.j
   코드·의존성·테스트 설정이 같으면 유효한 기존 구현 검증 결과를 재사용한다.
 - 같은 변경의 테스트·코드 리뷰는 한 작업 흐름에서 담당한다. 커밋·푸시만을
   이유로 전체 검증을 반복하지 않으며 아래 릴리스 필수 검증은 유지한다.
+- CI는 Linux·macOS의 Node.js 22/24에서 Node·설치 테스트와 배포 묶음의 일치를 확인한다. 로컬 통과와 GitHub에서 실제 실행한 결과를 구분한다.
 
 ## 변경 이력
 

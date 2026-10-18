@@ -464,11 +464,11 @@ def install(args: argparse.Namespace) -> dict:
 
     node, npm, codex = (shutil.which(name) for name in ("node", "npm", "codex"))
     if not all((node, npm, codex)):
-        raise ValueError("Install Node.js 20+, npm, and Codex CLI on PATH first.")
+        raise ValueError("Install Node.js 22+, npm, and Codex CLI on PATH first.")
     version = command_output([node, "--version"])
     match = re.fullmatch(r"v(\d+)\.\d+\.\d+(?:[-+].*)?", version)
-    if not match or int(match[1]) < 20:
-        raise ValueError(f"Node.js 20+ is required; found {version}.")
+    if not match or int(match[1]) < 22:
+        raise ValueError(f"Node.js 22+ is required; found {version}.")
     project = Path(plan["project"]) if plan["project"] is not None else None
     shell_text = shell_source(prefix, plan["scope"], project, plan["language"], plan["autostart"])
     quoted_source = shlex.quote(str(shell_file))

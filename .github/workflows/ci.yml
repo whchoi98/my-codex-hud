@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: ["22", "24"]
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install zsh
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+      - run: npm run test:installer
+      - name: Verify bundled package
+        run: |
+          python3 -B - <<'PY'
+          import json
+          import runpy
+          import tarfile
+          from pathlib import Path
+
+          version = json.loads(Path("package.json").read_text())["version"]
+          lock = json.loads(Path("package-lock.json").read_text())
+          plugin = Path("plugins/codex-hud")
+          manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
+          skill = plugin / "skills/codex-hud-install"
+          archive, metadata = runpy.run_path(str(skill / "scripts/install.py"))["bundle"]()
+          assert version == lock["version"] == lock["packages"][""]["version"]
+          assert version == manifest["version"] == metadata["version"]
+          with tarfile.open(archive, "r:gz") as package:
+              required_files = {Path(name) for name in (
+                  "package.json", ".nvmrc", "README.md", "CHANGELOG.md", "CONTRIBUTING.md",
+                  "AGENTS.md", "plugins/codex-hud/README.md", "my-codex-hud.png",
+              )} | set(Path("docs").rglob("*.md"))
+              packaged_files = {
+                  Path(member.name).relative_to("package")
+                  for member in package.getmembers() if member.isfile()
+              }
+              assert required_files <= packaged_files, required_files - packaged_files
+              for path in sorted(packaged_files):
+                  assert package.extractfile(f"package/{path}").read() == path.read_bytes(), path
+          print(f"Verified HUD {version}: {metadata['sha256']}")
+          PY

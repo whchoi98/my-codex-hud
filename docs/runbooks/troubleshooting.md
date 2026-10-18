@@ -76,7 +76,8 @@ from the parent shell's activation state.
 | Dragging does not select text | Use HUD 0.5.2+ with `--no-mouse`. With captured mouse input, release it using `Alt+M` before dragging. Running processes need a restart to load updated source. |
 | Only “Waiting for a Codex session” appears | Inspect `codexHome`, `sessionsDirectory` and `matchingSession`. Select the exact project with `--cwd`, or pin a rollout path/UUID with `--session`. A new session needs its first saved task. No local rollout means no HUD data. |
 | A resumed session shows the wrong activity | Pin the HUD explicitly with `--session`; default selection is based on session metadata and cwd, not a process PID. |
-| The native PTY cannot load or start | Inspect `inline.error`, `inline.probe`, Node version and architecture. Install Node.js 20+ and the required native build tools where prebuilds are unavailable. Use WSL for inline mode on Windows. |
+| A Codex worktree session is not selected | Use HUD 0.8.0+ with `start -- --worktree`, or `watch --cwd <original-project> --worktrees`. Git must be available, and the candidate must be a registered root sharing the same Git common directory. Pin simultaneous launches with `--session`. |
+| The native PTY cannot load or start | Inspect `inline.error`, `inline.probe`, Node version and architecture. Install Node.js 22+ and the required native build tools where prebuilds are unavailable. Use WSL for inline mode on Windows. |
 | `start` requires an interactive terminal | Run it directly with TTY stdin/stdout. For redirected output, use `status` or `watch --once`. |
 | `start --tmux` cannot find tmux | Install tmux or use the default inline `start` backend. |
 | Values do not change immediately | Session updates follow logged events and the configured interval, normally one second. Git refreshes during polling at least three seconds apart for the same directory. |
@@ -169,7 +170,8 @@ command codex
 | 드래그로 텍스트가 선택되지 않습니다. | HUD 0.5.2 이상에서 `--no-mouse`를 사용합니다. 마우스를 캡처한 경우 `Alt+M`으로 해제한 뒤 드래그합니다. 바뀐 소스를 읽으려면 실행 중인 프로세스를 재시작해야 합니다. |
 | “Waiting for a Codex session”만 보입니다. | `codexHome`, `sessionsDirectory`, `matchingSession`을 확인합니다. `--cwd`로 정확한 프로젝트를 선택하거나 `--session`으로 rollout 경로·UUID를 고정합니다. 새 세션은 첫 작업이 저장되어야 합니다. 로컬 rollout이 없으면 HUD 데이터도 없습니다. |
 | 재개한 세션에서 다른 활동이 보입니다. | `--session`으로 HUD 대상을 명시합니다. 기본 선택은 프로세스 PID가 아닌 세션 메타데이터와 cwd를 기준으로 합니다. |
-| 네이티브 PTY를 불러오거나 시작하지 못합니다. | `inline.error`, `inline.probe`, Node 버전과 아키텍처를 확인합니다. Node.js 20 이상을 설치하고, 사전 빌드가 없으면 네이티브 빌드 도구를 준비합니다. Windows inline 실행은 WSL을 사용합니다. |
+| Codex 작업 트리 세션을 찾지 못합니다. | HUD 0.8.0 이상에서 `start -- --worktree` 또는 `watch --cwd <original-project> --worktrees`를 사용합니다. Git이 필요하며, 같은 Git 공통 디렉터리를 공유하는 등록된 루트여야 합니다. 동시 실행은 `--session`으로 구분합니다. |
+| 네이티브 PTY를 불러오거나 시작하지 못합니다. | `inline.error`, `inline.probe`, Node 버전과 아키텍처를 확인합니다. Node.js 22 이상을 설치하고, 사전 빌드가 없으면 네이티브 빌드 도구를 준비합니다. Windows inline 실행은 WSL을 사용합니다. |
 | `start`에 대화형 터미널이 필요하다고 나옵니다. | 표준 입력·출력이 TTY인 터미널에서 직접 실행합니다. 리다이렉트할 때는 `status` 또는 `watch --once`를 사용합니다. |
 | `start --tmux`에서 tmux를 찾지 못합니다. | tmux를 설치하거나 기본 inline `start`를 사용합니다. |
 | 수치가 즉시 바뀌지 않습니다. | 세션에 기록된 이벤트와 설정한 갱신 간격을 따르며 기본값은 1초입니다. Git은 폴링 시 같은 디렉터리에 대해 최소 3초 간격으로 갱신합니다. |

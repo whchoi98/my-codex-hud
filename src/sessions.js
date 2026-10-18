@@ -1,6 +1,7 @@
 import { open, readdir, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { isObject, timestamp } from './state.js';
+import { getGitCommonDirectory, getLinkedWorktrees } from './git.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const metadataCache = new Map();
@@ -72,10 +73,11 @@ async function canonical(path) {
 }
 
 /**
- * Root-session auto-selection is intentionally scoped to the exact cwd.
+ * Root-session auto-selection uses exact cwd, plus registered sibling worktree
+ * roots when explicitly enabled. Worktree registrations refresh on each search.
  * Explicit paths/UUIDs never silently fall back to an unrelated session.
  */
-export async function findSession({ codexHome, cwd, session, since }) {
+export async function findSession({ codexHome, cwd, session, since, worktrees = false }) {
   if (session && !UUID.test(session)) {
     const path = resolve(cwd, session);
     const info = await stat(path).catch(error => {
@@ -102,6 +104,12 @@ export async function findSession({ codexHome, cwd, session, since }) {
   }
   candidates.sort((a, b) => b.info.mtimeMs - a.info.mtimeMs || b.path.localeCompare(a.path));
   const wantedCwd = await canonical(cwd);
+  let linkedRoots;
+  const repositories = new Map();
+  const repositoryAt = path => {
+    if (!repositories.has(path)) repositories.set(path, getGitCommonDirectory(path));
+    return repositories.get(path);
+  };
   for (const { path, info } of candidates) {
     let meta;
     try { meta = await metadata(path, info); }
@@ -116,7 +124,15 @@ export async function findSession({ codexHome, cwd, session, since }) {
     }
     if (meta.child || !meta.cwd || !isAbsolute(meta.cwd)) continue;
     if (since !== undefined && (meta.startedAt === null || meta.startedAt < since)) continue;
-    if (await canonical(meta.cwd) === wantedCwd) return path;
+    const candidateCwd = await canonical(meta.cwd);
+    if (candidateCwd === wantedCwd) return path;
+    if (worktrees) {
+      linkedRoots ??= new Set(await getLinkedWorktrees(wantedCwd));
+      if (linkedRoots.has(candidateCwd)) {
+        const [wanted, actual] = await Promise.all([repositoryAt(wantedCwd), repositoryAt(candidateCwd)]);
+        if (wanted !== null && actual === wanted) return path;
+      }
+    }
   }
   if (session) throw new Error(`Session not found: ${session}`);
   return null;

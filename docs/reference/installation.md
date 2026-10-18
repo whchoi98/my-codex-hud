@@ -76,7 +76,8 @@ The first three paths below are relative to
   `hud.autostart.active` remains `null` because parent-shell functions are not
   visible to this process. Filesystem/metadata problems are reported separately
   from native PTY availability. The bundle comparison does not verify TGZ integrity.
-- **Failure boundaries:** Preflight checks Node, the bundle and startup markers.
+- **Failure boundaries:** Preflight requires Node.js 22+ before npm or configuration
+  writes and checks the bundle and startup markers.
   `--dry-run` returns the plan without installation or file writes. Actual
   installation runs npm, verifies the installed version and doctor's `codex`,
   `inline.available` and real probe result, then checks managed state/shell/startup
@@ -208,7 +209,8 @@ GitHub 플러그인 탐색에는 저장소의 `.agents/plugins/marketplace.json`
   부모 셸의 함수를 볼 수 없어 `hud.autostart.active`는 `null`입니다. 파일·메타데이터
   오류는 네이티브 PTY 가용성과 별도로 보고합니다. 버전 비교만으로 TGZ 무결성을
   검증하지 않습니다.
-- **실패 경계:** 사전 검사에서 Node, 번들과 시작 파일 표식을 확인합니다.
+- **실패 경계:** npm 실행과 설정 변경 전에 Node.js 22 이상인지 확인하고,
+  번들과 시작 파일 표식도 검사합니다.
   `--dry-run`은 설치나 파일 쓰기 없이 계획을 반환합니다. 실제 설치는 npm 실행,
   설치 버전과 진단의 `codex`·`inline.available`·실제 probe 결과 확인, 관리 상태·셸·
   시작 파일의 기존 내용 재확인을 마친 뒤 셸 파일과 설치 상태를 씁니다.

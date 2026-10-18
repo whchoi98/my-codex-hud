@@ -107,7 +107,8 @@ function validateHudSettings(settings) {
  * keeps the initial cwd, while hudSettings follows the last -C/--cd before --.
  * HUD preferences are forwarded with the same defaults as the tmux launcher.
  * session pins only the HUD: callers supply any Codex resume/fork arguments.
- * Fresh launches get an epoch-ms since cutoff unless session is explicit.
+ * Fresh and --worktree launches get an epoch-ms since cutoff unless session is
+ * explicit. --worktree also allows registered sibling worktree roots.
  * Resume/fork without session returns a selection-ambiguity note and no cutoff.
  *
  * Resolves to { file, args, cwd, env, hudSettings, note? }.
@@ -126,16 +127,18 @@ export async function prepareCodex(settings = {}) {
     ...Object.fromEntries(Object.entries(hudFields).filter(([, value]) => value !== undefined)),
   };
   validateHudSettings(hudSettings);
-  const { hudCwd, continuing } = codexLaunchContext(cwd, args);
+  const { hudCwd, continuing, worktree } = codexLaunchContext(cwd, args);
   const childEnv = { ...terminalEnvironment(env), CODEX_HOME: codexHome };
   if (session == null) delete childEnv.CODEX_THREAD_ID;
   await checkDirectory(cwd);
   const file = await findExecutable('codex', childEnv, cwd);
   hudSettings.cwd = hudCwd;
   delete hudSettings.since;
+  delete hudSettings.worktrees;
   let note;
   if (session == null) {
-    if (!continuing) hudSettings.since = Date.now();
+    if (worktree) hudSettings.worktrees = true;
+    if (!continuing || worktree) hudSettings.since = Date.now();
     else {
       note = 'Codex resume/fork selection is not guaranteed when multiple sessions share the same cwd. '
         + 'Use --session <UUID or rollout path> to pin the HUD; resumed metadata may retain its old cwd.';

@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-// Codex 0.153.4 --help and upstream 9e868bd9: utils/cli's SharedCliOptions
+// Codex 0.163.0 --help: utils/cli's SharedCliOptions
 // and CliConfigOverrides, cli's FeatureToggles/InteractiveRemoteOptions, and
 // tui's approval_policy. These consume one value; --cd and image are below.
 // Keep preparation free of subprocess probes; update this with CLI changes.
@@ -30,6 +30,7 @@ export function inlineCodexArgs(args) {
 export function codexLaunchContext(cwd, args) {
   let hudCwd = cwd;
   let continuing = false;
+  let worktree = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--') break;
@@ -43,6 +44,10 @@ export function codexLaunchContext(cwd, args) {
       // Attached values (--image=x, -ix, -i=x) end the option immediately.
       while (index + 1 < args.length
         && (args[index + 1] === '-' || !args[index + 1].startsWith('-'))) index += 1;
+      continue;
+    }
+    if (arg === '--worktree') {
+      worktree = true;
       continue;
     }
     let directory;
@@ -61,5 +66,5 @@ export function codexLaunchContext(cwd, args) {
     }
     hudCwd = resolve(cwd, directory);
   }
-  return { hudCwd, continuing };
+  return { hudCwd, continuing, worktree };
 }

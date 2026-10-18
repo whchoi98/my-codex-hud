@@ -247,6 +247,42 @@ test('a profile named resume waits for new history instead of selecting an old s
   assert.equal(await findSession(hudSettings), join(sessions, 'rollout-new.jsonl'));
 });
 
+test('a Codex worktree launch enables scoped discovery with a fresh cutoff, including fork', posix, async t => {
+  const f = await fixture(t);
+  for (const codexArgs of [
+    ['--worktree'],
+    ['--image', 'picture.png', '--worktree'],
+    ['fork', '11111111-1111-7111-8111-111111111111', '--worktree'],
+  ]) {
+    const before = Date.now();
+    const prepared = await prepareCodex({ ...f.settings, codexArgs });
+    assert.equal(prepared.hudSettings.worktrees, true);
+    assert.ok(prepared.hudSettings.since >= before && prepared.hudSettings.since <= Date.now());
+    assert.equal(prepared.cwd, f.settings.cwd);
+    assert.deepEqual(prepared.args, codexArgs);
+    assert.equal(prepared.note, undefined);
+  }
+});
+
+test('worktree option values and explicit sessions cannot broaden HUD discovery', posix, async t => {
+  const f = await fixture(t);
+  for (const codexArgs of [
+    ['--', '--worktree'],
+    ['--config', '--worktree'],
+    ['--profile=--worktree'],
+    ['--model', '--worktree'],
+  ]) {
+    const prepared = await prepareCodex({ ...f.settings, codexArgs });
+    assert.notEqual(prepared.hudSettings.worktrees, true);
+    assert.deepEqual(prepared.args, codexArgs);
+  }
+  const prepared = await prepareCodex({
+    ...f.settings, codexArgs: ['--worktree'], session: 'explicit.jsonl',
+  });
+  assert.notEqual(prepared.hudSettings.worktrees, true);
+  assert.equal(Object.hasOwn(prepared.hudSettings, 'since'), false);
+});
+
 for (const codexArgs of [
   ['-C', 'resume'],
   ['--cd', 'resume'],

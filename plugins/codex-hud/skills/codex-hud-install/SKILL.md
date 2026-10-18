@@ -114,7 +114,9 @@ current shell needs the updated function.
 
 ## Install
 
-Requirements: Python 3.9+, Node.js 20+, npm, and an installed Codex CLI on PATH.
+Requirements: Python 3.9+, Node.js 22+, npm, and an installed Codex CLI on PATH.
+Node.js 24 is the development default; HUD 0.8.0+ installers reject Node.js 20/21
+before npm or configuration writes. Read-only status remains available for inspection.
 The helper supports Linux, macOS, and WSL. Native Windows users can use WSL;
 do not install this POSIX shell integration into PowerShell.
 When `node-pty` lacks a prebuilt binary for the OS/CPU, installation also needs

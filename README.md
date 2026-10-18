@@ -1,6 +1,6 @@
 # Codex HUD
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Build: not configured](https://img.shields.io/badge/build-not_configured-lightgrey)](#testing) [![Version: 0.7.0](https://img.shields.io/badge/version-0.7.0-blue)](package.json) [![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Build: CI configured](https://img.shields.io/badge/build-CI_configured-blue)](#testing) [![Version: 0.8.0](https://img.shields.io/badge/version-0.8.0-blue)](package.json) [![English](https://img.shields.io/badge/lang-English-blue)](#english) [![한국어](https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-red)](#한국어)
 
 A live terminal HUD for Codex CLI, powered by local session logs. / 로컬 세션 기록으로 Codex CLI의 작업 상태를 실시간 표시하는 터미널 HUD입니다.
 
@@ -26,7 +26,7 @@ The screenshot shows an example session; explore architecture, operations and ve
 
 ## Prerequisites
 
-- Node.js **20+** and npm.
+- Node.js **22+** and npm; **Node.js 24** is the development default in [.nvmrc](.nvmrc).
 - Codex CLI on `PATH` for `start` and runtime installation/update; use a CLI with `plugin marketplace` support for GitHub plugin installation.
 - Python **3.9+** for the bundled installer, skill registration, installer tests and packaging.
 - Git for GitHub/source workflows, development and optional repository status.
@@ -120,7 +120,7 @@ Choose the command for your workflow:
 ```bash
 # Show the installed version.
 codex-hud --version
-# Expected output: 0.7.0
+# Expected output: 0.8.0
 
 # Preview a Korean HUD without a saved session.
 codex-hud demo --language ko --no-color
@@ -128,6 +128,8 @@ codex-hud demo --language ko --no-color
 codex-hud start --language ko
 # Use the optional tmux backend.
 codex-hud start --tmux --language ko
+# Follow a new Codex session in a managed Git worktree.
+codex-hud start --language ko -- --worktree
 # Monitor the current project from a separate terminal.
 codex-hud watch --cwd . --language ko
 # Print a compact snapshot.
@@ -150,7 +152,9 @@ Frozen selection delays native-history transfers in a bounded 5,000-row queue. R
 
 Choose `full`, `essential` or `minimal` with `--preset`. The full activity order is tools, loaded skills, plugins, running agents and plan. Skills occupy one clipped line; agent sections disappear when no agents are running. Skill/plugin lists describe successful document reads in this session, not an inventory of all installed components.
 
-Automatic session selection matches the exact project directory and excludes child/internal sessions. `watch` pins its first match; use `--follow` to follow newer activity or `--session` to select a path/UUID. Put Codex arguments after `start --`; keep HUD options before `--`. Pin the HUD explicitly when resumed sessions are ambiguous.
+Automatic session selection normally matches the exact project directory and excludes child/internal sessions. `start -- --worktree` also follows roots of other worktrees registered to the same Git repository, with a fresh-session cutoff, including `fork <UUID> --worktree`. Both inline and tmux support this. For standalone `watch`, `status` or `doctor`, opt in with `--worktrees`; Git is needed for that discovery even with `--no-git`.
+
+`watch` pins its first match; use `--follow` to follow newer activity or `--session` to select a path/UUID. Put Codex arguments after `start --`; keep HUD options before `--`. Explicit sessions take precedence. Pin the HUD when several simultaneous launches or resumed sessions make automatic selection ambiguous.
 
 Redirected `watch`, `--once` and `--json` produce a single snapshot. `setup` only prints TOML. Run `codex-hud --help` for all options, and read [terminal controls](docs/reference/terminal.md), [session selection](docs/reference/session-data.md) and [troubleshooting](docs/runbooks/troubleshooting.md) for details.
 
@@ -266,11 +270,13 @@ node --experimental-test-coverage --test tests/render.test.js
 npm run package:plugin
 ```
 
-No CI workflow or hosted coverage report is configured. The coverage command reports only the selected rendering tests; see the [verification record](docs/verification-0.7.0.md) for the full-suite coverage trial and its PTY resize failure.
+The source checkout includes `.github/workflows/ci.yml` for Linux/macOS and Node.js 22/24. It runs these checks and verifies the tracked npm bundle against the source. Linux jobs install Zsh so shell tests can run. The badge indicates configured CI, not a successful hosted run; GitHub executes it after the workflow is pushed. No hosted coverage report is configured.
+
+The coverage command reports only the selected rendering tests. The [0.7.0 verification record](docs/verification-0.7.0.md) preserves the earlier full-suite PTY resize failure; the test now waits for the resized child viewport before sending page keys.
 
 Reuse valid runtime results for documentation-only changes when code, dependencies and test settings are unchanged. Verify document links, screenshots and packaged content instead of repeating full suites solely for a commit. Follow [CONTRIBUTING.md](CONTRIBUTING.md) and the [release runbook](docs/runbooks/release.md) for required checks.
 
-Read the [0.7.0 verification record](docs/verification-0.7.0.md) for Linux automation, real installation/update trials and the user's subsequent Mac confirmation. The automated tests do not operate a VS Code GUI.
+Read the [0.8.0 verification record](docs/verification-0.8.0.md) for current Node 22/24 and worktree checks. The [0.7.0 record](docs/verification-0.7.0.md) preserves earlier installation/update trials and the user's Mac confirmation. The automated tests do not operate a VS Code GUI.
 
 ## API Documentation
 
@@ -339,7 +345,7 @@ This is an independent project, not an official OpenAI or Anthropic product. Rea
 
 ## 사전 요구 사항
 
-- Node.js **20 이상**과 npm이 필요합니다.
+- Node.js **22 이상**과 npm이 필요합니다. 기본 개발 버전은 [.nvmrc](.nvmrc)의 **Node.js 24**입니다.
 - `start`와 실제 설치·업데이트에는 PATH의 Codex CLI가 필요합니다. GitHub 플러그인 설치에는 `plugin marketplace` 명령을 지원하는 CLI를 사용합니다.
 - 동봉 설치 도구, 스킬 등록, 설치 테스트와 패키징에는 Python **3.9 이상**이 필요합니다.
 - GitHub·소스 작업, 개발과 선택적 저장소 상태 확인에는 Git이 필요합니다.
@@ -433,7 +439,7 @@ codex-hud doctor
 ```bash
 # 설치된 버전을 확인합니다.
 codex-hud --version
-# 예상 출력: 0.7.0
+# 예상 출력: 0.8.0
 
 # 저장된 세션 없이 한글 HUD를 미리 봅니다.
 codex-hud demo --language ko --no-color
@@ -441,6 +447,8 @@ codex-hud demo --language ko --no-color
 codex-hud start --language ko
 # 선택적으로 tmux 방식을 사용합니다.
 codex-hud start --tmux --language ko
+# Git 작업 트리에서 시작하는 새 Codex 세션을 따라갑니다.
+codex-hud start --language ko -- --worktree
 # 별도 터미널에서 현재 프로젝트를 모니터링합니다.
 codex-hud watch --cwd . --language ko
 # 간단한 스냅샷을 출력합니다.
@@ -463,7 +471,9 @@ codex-hud setup
 
 `--preset`으로 `full`, `essential`, `minimal`을 선택합니다. Full 활동 순서는 도구, 로드한 스킬, 플러그인, 실행 중인 에이전트, 계획입니다. 스킬은 너비에 맞춘 한 줄로 표시하고, 실행 중인 에이전트가 없으면 에이전트 영역을 생략합니다. 스킬·플러그인 목록은 이 세션에서 성공한 문서 읽기 이력을 나타내며, 설치된 전체 구성요소 목록은 아닙니다.
 
-자동 세션 선택은 프로젝트 디렉터리의 정확한 일치를 요구하며 자식·내부 세션은 제외합니다. `watch`는 처음 선택한 세션을 고정합니다. 새 활동을 따라가려면 `--follow`, 경로·UUID로 지정하려면 `--session`을 사용합니다. Codex 인자는 `start --` 뒤에, HUD 옵션은 `--` 앞에 둡니다. 재개한 세션을 구분하기 어려우면 HUD 대상을 명시합니다.
+일반적인 자동 세션 선택은 프로젝트 디렉터리가 정확히 일치해야 하며, 자식·내부 세션은 제외합니다. `start -- --worktree`는 같은 Git 저장소에 등록된 다른 작업 트리의 루트도 따라가며, 실행 이후 생성된 세션만 선택합니다. `fork <UUID> --worktree`와 inline·tmux 모두 같은 규칙을 적용합니다. 별도 `watch`, `status`, `doctor`에서는 `--worktrees`로 켭니다. 이 탐색에는 `--no-git`을 사용해도 Git이 필요합니다.
+
+`watch`는 처음 선택한 세션을 고정합니다. 새 활동을 따라가려면 `--follow`, 경로·UUID로 지정하려면 `--session`을 사용합니다. Codex 인자는 `start --` 뒤에, HUD 옵션은 `--` 앞에 둡니다. 명시한 세션이 자동 선택보다 우선합니다. 동시 실행이나 재개한 세션을 구분하기 어려우면 HUD 대상을 명시합니다.
 
 리다이렉트한 `watch`, `--once`, `--json`은 한 번만 출력합니다. `setup`은 TOML을 출력만 합니다. 전체 옵션은 `codex-hud --help`로 확인하고, 자세한 내용은 [터미널 제어](docs/reference/terminal.md), [세션 선택](docs/reference/session-data.md), [문제 해결](docs/runbooks/troubleshooting.md)을 참고합니다.
 
@@ -579,11 +589,13 @@ node --experimental-test-coverage --test tests/render.test.js
 npm run package:plugin
 ```
 
-CI 워크플로와 호스팅된 커버리지 보고서는 구성되어 있지 않습니다. 커버리지 명령은 선택한 렌더링 테스트만 측정합니다. 전체 커버리지 실행과 당시 PTY 리사이즈 실패는 [검증 기록](docs/verification-0.7.0.md)을 참고합니다.
+소스 체크아웃의 `.github/workflows/ci.yml`은 Linux·macOS와 Node.js 22/24에서 위 검사를 실행하고, 추적 중인 npm 묶음이 소스와 일치하는지 확인합니다. Linux 작업에는 Zsh를 설치해 셸 테스트도 실행합니다. 배지는 CI 설정 여부를 표시하며 호스팅된 실행의 성공을 뜻하지 않습니다. GitHub 실행은 워크플로를 푸시한 뒤 시작됩니다. 호스팅된 커버리지 보고서는 없습니다.
+
+커버리지 명령은 선택한 렌더링 테스트만 측정합니다. 과거 전체 실행의 PTY 크기 변경 실패는 [0.7.0 검증 기록](docs/verification-0.7.0.md)에 보존했습니다. 현재 테스트는 자식 프로세스가 바뀐 크기로 화면을 표시한 것을 확인한 뒤 페이지 키를 전달합니다.
 
 문서만 바꾼 경우 코드·의존성·테스트 설정이 같으면 유효한 기존 실행 검증 결과를 재사용합니다. 커밋만을 이유로 전체 테스트를 반복하기보다 문서 링크·스크린샷·배포 내용을 확인합니다. 필수 검증은 [CONTRIBUTING.md](CONTRIBUTING.md)와 [릴리스 런북](docs/runbooks/release.md)을 따릅니다.
 
-Linux 자동 검증, 실제 설치·업데이트 시험, 이후 Mac 사용자 확인은 [0.7.0 검증 기록](docs/verification-0.7.0.md)을 참고합니다. 자동 테스트는 VS Code GUI를 조작하지 않습니다.
+현재 Node 22/24와 작업 트리 검증은 [0.8.0 검증 기록](docs/verification-0.8.0.md)을 참고합니다. 과거 설치·업데이트 시험과 Mac 사용자 확인은 [0.7.0 기록](docs/verification-0.7.0.md)에 보존했습니다. 자동 테스트는 VS Code GUI를 조작하지 않습니다.
 
 ## API 문서
 

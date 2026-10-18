@@ -205,6 +205,9 @@ test('watch pages through all agents in a short PTY and restores input mode on C
   await until(() => visible().includes('Agent-33'), 'wheel did not scroll the list');
   terminal.resize(40, 6);
   child.resize(40, 6);
+  // SIGWINCH and input arrive independently. Wait for the child to paint five
+  // content rows before paging, so old geometry cannot consume both key presses.
+  await until(() => /HUD 31-35\/45/.test(visible()), 'resized viewport never appeared');
   child.write('\x1b[6;3~\x1b[6;3~');
   await until(() => visible().includes('Agent-39'), 'last agent was lost after resize');
   child.write('\x03');

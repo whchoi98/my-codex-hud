@@ -5,7 +5,8 @@
 <a id="english"></a>
 ## English
 
-Use Node.js 20+, npm, Git, and Python 3.9+ for installer tests and packaging.
+Use Node.js 22+, npm, Git, and Python 3.9+ for installer tests and packaging.
+Use the Node.js 24 development default recorded in [.nvmrc](../.nvmrc).
 Codex CLI must be on PATH for `start` and runtime installation/update. The
 installer's read-only `--status` does not require npm or Codex. `demo`, `setup`, and
 the automated tests need no model request; `watch` and `status` read saved local
@@ -55,7 +56,8 @@ failure boundaries, and the [release runbook](runbooks/release.md) for packaging
 <a id="korean"></a>
 ## 한국어
 
-Node.js 20 이상, npm, Git, 설치 검증·패키징용 Python 3.9 이상을 준비합니다.
+Node.js 22 이상, npm, Git, 설치 검증·패키징용 Python 3.9 이상을 준비합니다.
+기본 개발 버전은 [.nvmrc](../.nvmrc)에 기록한 Node.js 24입니다.
 `start`와 실제 설치·업데이트에는 PATH의 Codex CLI가 필요합니다.
 설치 도구의 읽기 전용 `--status`에는 npm·Codex가 필요하지 않습니다. `demo`, `setup`,
 자동 검증은 모델 요청 없이 실행하며, `watch`와 `status`는 저장된 로컬
