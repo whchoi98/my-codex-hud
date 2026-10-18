@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { fstatSync } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -125,7 +125,7 @@ appendFileSync(process.env.CODEX_HUD_TEST_LOG, JSON.stringify({
 `;
 
 async function fixture(t, { inside = false, unusualPaths = false } = {}) {
-  const root = await mkdtemp(join(tmpdir(), 'codex-hud-launch-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codex-hud-launch-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const suffix = unusualPaths ? " ' spaces $(touch INJECTED); newline\nend;" : '';
   const bin = join(root, `bin${suffix}`);

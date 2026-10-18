@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -9,7 +9,7 @@ import test from 'node:test';
 const exec = promisify(execFile);
 const cli = resolve('bin/codex-hud.js');
 async function fixture(t) {
-  const dir = await mkdtemp(join(tmpdir(), 'codex-hud-cli-'));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), 'codex-hud-cli-')));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const codexHome = join(dir, 'codex');
   await mkdir(codexHome);

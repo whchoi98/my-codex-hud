@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { appendFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -24,7 +25,12 @@ async function until(check, message) {
   assert.fail(message);
 }
 
-async function fixture(t, extraEnv = {}, overrides = {}, initialText = '') {
+async function untilFrame(terminal, check, message) {
+  // Text can arrive before the frame's remaining rows and terminal modes.
+  await until(() => !terminal.modes.synchronizedOutputMode && check(), message);
+}
+
+async function fixture(t, extraEnv = {}, overrides = {}, initialText = '', outputChunkSize = Infinity) {
   const dir = await mkdtemp(join(tmpdir(), 'codex-hud-inline-'));
   const bin = join(dir, 'bin');
   const codexHome = join(dir, 'codex');
@@ -61,7 +67,13 @@ async function fixture(t, extraEnv = {}, overrides = {}, initialText = '') {
   let pending = Promise.resolve();
   const data = child.onData(chunk => {
     output += chunk;
-    pending = pending.then(() => new Promise(resolve => terminal.write(chunk, resolve)));
+    for (let offset = 0; offset < chunk.length; offset += outputChunkSize) {
+      const part = chunk.slice(offset, offset + outputChunkSize);
+      pending = pending.then(async () => {
+        await new Promise(resolve => terminal.write(part, resolve));
+        if (Number.isFinite(outputChunkSize)) await delay(2);
+      });
+    }
   });
   const exited = new Promise(resolve => child.onExit(resolve));
   let done = false;
@@ -227,18 +239,21 @@ test('Ctrl+C and Unicode paste reach Codex, preserving its exit code and restori
 
 for (const mouse of [false, true]) {
   test(`runtime selection controls preserve mouse=${mouse} through real PTYs without reaching Codex`, async t => {
-    const f = await fixture(t, {}, { mouse });
-    await until(() => screenLines(f.terminal).some(line => line.includes('컨텍스트')), 'Korean HUD never appeared');
+    // Exercise the partial frame reads that real PTYs can deliver on macOS.
+    const f = await fixture(t, {}, { mouse }, '', 64);
+    await untilFrame(f.terminal, () => screenLines(f.terminal).some(line => line.includes('컨텍스트')),
+      'Korean HUD never appeared');
     assert.equal(f.terminal.buffer.active.type, mouse ? 'alternate' : 'normal');
     assert.deepEqual((await f.records()).find(event => event.type === 'ready').args, ['--no-alt-screen']);
     assert.equal(f.terminal.modes.mouseTrackingMode, mouse ? 'vt200' : 'none');
     f.child.write('\x1b');
     f.child.write('l');
-    await until(() => screenLines(f.terminal).some(line => line.includes('Context')), 'HUD did not switch to English');
+    await untilFrame(f.terminal, () => screenLines(f.terminal).some(line => line.includes('Context')),
+      'HUD did not switch to English');
     await delay(250);
     assert.ok(screenLines(f.terminal).some(line => line.includes('Context')), 'polling reverted the language');
     f.child.write('\x1bm');
-    await until(() => f.terminal.modes.mouseTrackingMode === 'none'
+    await untilFrame(f.terminal, () => f.terminal.modes.mouseTrackingMode === 'none'
       && screenLines(f.terminal).some(line => line.includes('Text selection')), 'selection mode did not release the mouse');
     const frozen = screenLines(f.terminal);
     await appendFile(join(f.settings.codexHome, 'sessions', 'rollout-inline-test.jsonl'), JSON.stringify({
@@ -248,11 +263,12 @@ for (const mouse of [false, true]) {
     await f.flush();
     assert.deepEqual(screenLines(f.terminal), frozen);
     f.child.write('\x1bm');
-    await until(() => screenLines(f.terminal).some(line => line.includes('updated-while-selecting')),
+    await untilFrame(f.terminal, () => screenLines(f.terminal).some(line => line.includes('updated-while-selecting')),
       'latest HUD was not displayed after selection mode');
     assert.equal(f.terminal.modes.mouseTrackingMode, mouse ? 'vt200' : 'none');
     f.child.write('\x1bl');
-    await until(() => screenLines(f.terminal).some(line => line.includes('컨텍스트')), 'HUD did not switch back to Korean');
+    await untilFrame(f.terminal, () => screenLines(f.terminal).some(line => line.includes('컨텍스트')),
+      'HUD did not switch back to Korean');
     const input = (await f.records()).filter(event => event.type === 'input').map(event => event.data).join('');
     assert.ok(!input.includes('\x1bl') && !input.includes('\x1bm'), 'HUD shortcuts leaked into Codex');
     f.child.write('q');
@@ -316,6 +332,14 @@ test('a stalled physical terminal does not block signal handling or Codex termin
     await until(() => {
       try { process.kill(pid, 0); return false; } catch (error) { return error.code === 'ESRCH'; }
     }, 'Codex remained alive while host output was stalled');
+  } catch (error) {
+    try {
+      const status = execFileSync('ps',
+        ['-o', 'pid=,ppid=,pgid=,stat=,wchan=', '-p', `${f.child.pid},${pid}`],
+        { encoding: 'utf8', timeout: 1000 }).trim();
+      error.message += `\nPTY processes (pid, ppid, pgid, state, wait channel):\n${status}`;
+    } catch { /* Keep the original failure if process inspection is unavailable. */ }
+    throw error;
   } finally {
     f.child.resume();
   }
